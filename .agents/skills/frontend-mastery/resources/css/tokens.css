@@ -1,0 +1,359 @@
+/* =============================================
+   Design Tokens (2026)
+   =============================================
+   All design decisions in one place. Import this
+   file first, then reference tokens everywhere.
+   ============================================= */
+
+/* === CSS Layers for Cascade Control === */
+@layer reset, tokens, base, components, utilities, overrides;
+
+@layer tokens {
+
+  :root {
+    /* -----------------------------------------------
+       COLOR PALETTE (HSL for easy manipulation)
+       ----------------------------------------------- */
+
+    /* --- Brand / Primary --- */
+    --color-primary-50:  hsl(245, 100%, 97%);
+    --color-primary-100: hsl(245, 95%, 92%);
+    --color-primary-200: hsl(245, 90%, 84%);
+    --color-primary-300: hsl(245, 85%, 73%);
+    --color-primary-400: hsl(245, 82%, 63%);
+    --color-primary-500: hsl(245, 78%, 52%);
+    --color-primary-600: hsl(245, 82%, 45%);
+    --color-primary-700: hsl(245, 78%, 38%);
+    --color-primary-800: hsl(245, 72%, 30%);
+    --color-primary-900: hsl(245, 68%, 22%);
+    --color-primary-950: hsl(245, 75%, 13%);
+
+    /* --- Secondary / Accent --- */
+    --color-accent-50:  hsl(175, 90%, 96%);
+    --color-accent-100: hsl(175, 85%, 88%);
+    --color-accent-200: hsl(175, 80%, 76%);
+    --color-accent-300: hsl(175, 72%, 62%);
+    --color-accent-400: hsl(175, 68%, 50%);
+    --color-accent-500: hsl(175, 75%, 40%);
+    --color-accent-600: hsl(175, 78%, 33%);
+    --color-accent-700: hsl(175, 80%, 26%);
+    --color-accent-800: hsl(175, 75%, 20%);
+    --color-accent-900: hsl(175, 70%, 14%);
+
+    /* --- Neutral / Gray Scale --- */
+    --color-neutral-0:   hsl(0, 0%, 100%);
+    --color-neutral-50:  hsl(220, 20%, 97%);
+    --color-neutral-100: hsl(220, 18%, 94%);
+    --color-neutral-200: hsl(220, 15%, 87%);
+    --color-neutral-300: hsl(220, 12%, 77%);
+    --color-neutral-400: hsl(220, 10%, 57%);
+    --color-neutral-500: hsl(220, 10%, 42%);
+    --color-neutral-600: hsl(220, 12%, 33%);
+    --color-neutral-700: hsl(220, 15%, 24%);
+    --color-neutral-800: hsl(220, 20%, 16%);
+    --color-neutral-900: hsl(220, 25%, 10%);
+    --color-neutral-950: hsl(220, 30%, 6%);
+
+    /* --- Semantic Status Colors --- */
+    --color-success-light: hsl(152, 65%, 92%);
+    --color-success:       hsl(152, 68%, 45%);
+    --color-success-dark:  hsl(152, 68%, 30%);
+
+    --color-warning-light: hsl(38, 92%, 90%);
+    --color-warning:       hsl(38, 95%, 55%);
+    --color-warning-dark:  hsl(38, 90%, 38%);
+
+    --color-error-light:   hsl(0, 80%, 92%);
+    --color-error:         hsl(0, 84%, 60%);
+    --color-error-dark:    hsl(0, 80%, 42%);
+
+    --color-info-light:    hsl(205, 82%, 92%);
+    --color-info:          hsl(205, 85%, 55%);
+    --color-info-dark:     hsl(205, 80%, 38%);
+
+
+    /* -----------------------------------------------
+       SURFACE & TEXT (Semantic Aliases)
+       ----------------------------------------------- */
+
+    /* Surfaces */
+    --surface-primary:   var(--color-neutral-0);
+    --surface-secondary: var(--color-neutral-50);
+    --surface-tertiary:  var(--color-neutral-100);
+    --surface-elevated:  var(--color-neutral-0);
+    --surface-inset:     var(--color-neutral-100);
+    --surface-overlay:   hsla(220, 25%, 10%, 0.6);
+    --surface-brand:     var(--color-primary-500);
+
+    /* Text */
+    --text-primary:   var(--color-neutral-900);
+    --text-secondary: var(--color-neutral-500);
+    --text-tertiary:  var(--color-neutral-400);
+    --text-disabled:  var(--color-neutral-300);
+    --text-inverse:   var(--color-neutral-0);
+    --text-accent:    var(--color-primary-500);
+    --text-success:   var(--color-success-dark);
+    --text-warning:   var(--color-warning-dark);
+    --text-error:     var(--color-error);
+    --text-info:      var(--color-info-dark);
+
+    /* Borders */
+    --border-default: var(--color-neutral-200);
+    --border-subtle:  var(--color-neutral-100);
+    --border-strong:  var(--color-neutral-300);
+    --border-focus:   var(--color-primary-500);
+
+
+    /* -----------------------------------------------
+       TYPOGRAPHY
+       ----------------------------------------------- */
+
+    /* Font Families */
+    --font-sans:    'Inter', 'Geist Sans', system-ui, -apple-system, sans-serif;
+    --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'Geist Mono', 'Fira Code', ui-monospace, monospace;
+    --font-serif:   'Merriweather', 'Georgia', serif;
+
+    /* Font Sizes (fluid clamp) */
+    --text-xs:  clamp(0.7rem, 0.65rem + 0.25vw, 0.75rem);
+    --text-sm:  clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
+    --text-base: clamp(0.9rem, 0.85rem + 0.25vw, 1rem);
+    --text-lg:  clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+    --text-xl:  clamp(1.15rem, 1.05rem + 0.5vw, 1.25rem);
+    --text-2xl: clamp(1.35rem, 1.15rem + 1vw, 1.5rem);
+    --text-3xl: clamp(1.65rem, 1.35rem + 1.5vw, 1.875rem);
+    --text-4xl: clamp(2rem, 1.5rem + 2.5vw, 2.25rem);
+    --text-5xl: clamp(2.5rem, 1.75rem + 3.75vw, 3rem);
+    --text-6xl: clamp(3rem, 2rem + 5vw, 3.75rem);
+    --text-7xl: clamp(3.5rem, 2.25rem + 6.25vw, 4.5rem);
+    --text-8xl: clamp(4rem, 2.5rem + 7.5vw, 6rem);
+    --text-9xl: clamp(5rem, 3rem + 10vw, 8rem);
+
+    /* Line Heights */
+    --leading-none:    1;
+    --leading-tight:   1.25;
+    --leading-snug:    1.375;
+    --leading-normal:  1.5;
+    --leading-relaxed: 1.625;
+    --leading-loose:   2;
+
+    /* Font Weights */
+    --weight-thin:      100;
+    --weight-extralight: 200;
+    --weight-light:     300;
+    --weight-normal:    400;
+    --weight-medium:    500;
+    --weight-semibold:  600;
+    --weight-bold:      700;
+    --weight-extrabold: 800;
+    --weight-black:     900;
+
+    /* Letter Spacing */
+    --tracking-tighter: -0.05em;
+    --tracking-tight:   -0.025em;
+    --tracking-normal:  0em;
+    --tracking-wide:    0.025em;
+    --tracking-wider:   0.05em;
+    --tracking-widest:  0.1em;
+
+
+    /* -----------------------------------------------
+       SPACING (4px base unit)
+       ----------------------------------------------- */
+    --space-0:    0;
+    --space-px:   1px;
+    --space-0-5:  0.125rem;   /* 2px  */
+    --space-1:    0.25rem;    /* 4px  */
+    --space-1-5:  0.375rem;   /* 6px  */
+    --space-2:    0.5rem;     /* 8px  */
+    --space-2-5:  0.625rem;   /* 10px */
+    --space-3:    0.75rem;    /* 12px */
+    --space-3-5:  0.875rem;   /* 14px */
+    --space-4:    1rem;       /* 16px */
+    --space-5:    1.25rem;    /* 20px */
+    --space-6:    1.5rem;     /* 24px */
+    --space-7:    1.75rem;    /* 28px */
+    --space-8:    2rem;       /* 32px */
+    --space-9:    2.25rem;    /* 36px */
+    --space-10:   2.5rem;     /* 40px */
+    --space-11:   2.75rem;    /* 44px */
+    --space-12:   3rem;       /* 48px */
+    --space-14:   3.5rem;     /* 56px */
+    --space-16:   4rem;       /* 64px */
+    --space-20:   5rem;       /* 80px */
+    --space-24:   6rem;       /* 96px */
+    --space-28:   7rem;       /* 112px */
+    --space-32:   8rem;       /* 128px */
+    --space-40:   10rem;      /* 160px */
+    --space-48:   12rem;      /* 192px */
+    --space-56:   14rem;      /* 224px */
+    --space-64:   16rem;      /* 256px */
+
+
+    /* -----------------------------------------------
+       BORDER RADIUS
+       ----------------------------------------------- */
+    --radius-none: 0;
+    --radius-xs:   0.125rem;  /* 2px */
+    --radius-sm:   0.25rem;   /* 4px */
+    --radius-md:   0.5rem;    /* 8px */
+    --radius-lg:   0.75rem;   /* 12px */
+    --radius-xl:   1rem;      /* 16px */
+    --radius-2xl:  1.5rem;    /* 24px */
+    --radius-3xl:  2rem;      /* 32px */
+    --radius-full: 9999px;
+
+
+    /* -----------------------------------------------
+       SHADOWS (layered for realistic depth)
+       ----------------------------------------------- */
+    --shadow-xs:    0 1px 2px hsla(220, 25%, 10%, 0.05);
+    --shadow-sm:    0 1px 3px hsla(220, 25%, 10%, 0.1),
+                    0 1px 2px hsla(220, 25%, 10%, 0.06);
+    --shadow-md:    0 4px 6px hsla(220, 25%, 10%, 0.07),
+                    0 2px 4px hsla(220, 25%, 10%, 0.06);
+    --shadow-lg:    0 10px 15px hsla(220, 25%, 10%, 0.1),
+                    0 4px 6px hsla(220, 25%, 10%, 0.05);
+    --shadow-xl:    0 20px 25px hsla(220, 25%, 10%, 0.1),
+                    0 8px 10px hsla(220, 25%, 10%, 0.04);
+    --shadow-2xl:   0 25px 50px hsla(220, 25%, 10%, 0.25);
+    --shadow-inner: inset 0 2px 4px hsla(220, 25%, 10%, 0.06);
+    --shadow-glow:  0 0 20px hsla(245, 78%, 52%, 0.3);
+    --shadow-glow-lg: 0 0 40px hsla(245, 78%, 52%, 0.4);
+
+
+    /* -----------------------------------------------
+       TRANSITIONS & EASING
+       ----------------------------------------------- */
+    --ease-default:  cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-in:       cubic-bezier(0.4, 0, 1, 1);
+    --ease-out:      cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce:   cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-elastic:  cubic-bezier(0.68, -0.6, 0.32, 1.6);
+    --ease-spring:   cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-smooth:   cubic-bezier(0.25, 0.1, 0.25, 1);
+
+    --duration-instant: 75ms;
+    --duration-fast:    150ms;
+    --duration-normal:  250ms;
+    --duration-slow:    400ms;
+    --duration-slower:  600ms;
+    --duration-slowest: 1000ms;
+
+
+    /* -----------------------------------------------
+       Z-INDEX SCALE
+       ----------------------------------------------- */
+    --z-behind:   -1;
+    --z-base:     0;
+    --z-raised:   10;
+    --z-dropdown: 100;
+    --z-sticky:   200;
+    --z-overlay:  300;
+    --z-modal:    400;
+    --z-popover:  500;
+    --z-toast:    600;
+    --z-tooltip:  700;
+    --z-max:      9999;
+
+
+    /* -----------------------------------------------
+       CONTAINER WIDTHS
+       ----------------------------------------------- */
+    --container-xs:  20rem;   /* 320px  */
+    --container-sm:  24rem;   /* 384px  */
+    --container-md:  28rem;   /* 448px  */
+    --container-lg:  32rem;   /* 512px  */
+    --container-xl:  36rem;   /* 576px  */
+    --container-2xl: 42rem;   /* 672px  */
+    --container-3xl: 48rem;   /* 768px  */
+    --container-4xl: 56rem;   /* 896px  */
+    --container-5xl: 64rem;   /* 1024px */
+    --container-6xl: 72rem;   /* 1152px */
+    --container-7xl: 80rem;   /* 1280px */
+    --container-max: 90rem;   /* 1440px */
+
+
+    /* -----------------------------------------------
+       ASPECT RATIOS
+       ----------------------------------------------- */
+    --aspect-square:  1 / 1;
+    --aspect-video:   16 / 9;
+    --aspect-photo:   4 / 3;
+    --aspect-portrait: 3 / 4;
+    --aspect-wide:    21 / 9;
+    --aspect-golden:  1.618 / 1;
+  }
+
+
+  /* =============================================
+     DARK MODE OVERRIDES
+     ============================================= */
+
+  [data-theme="dark"],
+  .dark {
+    color-scheme: dark;
+
+    /* Surfaces */
+    --surface-primary:   var(--color-neutral-950);
+    --surface-secondary: var(--color-neutral-900);
+    --surface-tertiary:  var(--color-neutral-800);
+    --surface-elevated:  var(--color-neutral-800);
+    --surface-inset:     var(--color-neutral-900);
+    --surface-overlay:   hsla(220, 30%, 6%, 0.85);
+
+    /* Text */
+    --text-primary:   var(--color-neutral-50);
+    --text-secondary: var(--color-neutral-400);
+    --text-tertiary:  var(--color-neutral-500);
+    --text-disabled:  var(--color-neutral-600);
+    --text-inverse:   var(--color-neutral-950);
+    --text-accent:    var(--color-primary-400);
+
+    /* Borders */
+    --border-default: var(--color-neutral-700);
+    --border-subtle:  var(--color-neutral-800);
+    --border-strong:  var(--color-neutral-600);
+
+    /* Shadows (more subtle in dark mode) */
+    --shadow-xs:    0 1px 2px hsla(0, 0%, 0%, 0.2);
+    --shadow-sm:    0 1px 3px hsla(0, 0%, 0%, 0.3),
+                    0 1px 2px hsla(0, 0%, 0%, 0.2);
+    --shadow-md:    0 4px 6px hsla(0, 0%, 0%, 0.25),
+                    0 2px 4px hsla(0, 0%, 0%, 0.15);
+    --shadow-lg:    0 10px 15px hsla(0, 0%, 0%, 0.3),
+                    0 4px 6px hsla(0, 0%, 0%, 0.15);
+    --shadow-xl:    0 20px 25px hsla(0, 0%, 0%, 0.35),
+                    0 8px 10px hsla(0, 0%, 0%, 0.15);
+    --shadow-2xl:   0 25px 50px hsla(0, 0%, 0%, 0.5);
+    --shadow-glow:  0 0 25px hsla(245, 78%, 52%, 0.4);
+    --shadow-glow-lg: 0 0 50px hsla(245, 78%, 52%, 0.5);
+  }
+
+  /* Auto-detect system dark mode preference */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+
+      --surface-primary:   var(--color-neutral-950);
+      --surface-secondary: var(--color-neutral-900);
+      --surface-tertiary:  var(--color-neutral-800);
+      --surface-elevated:  var(--color-neutral-800);
+      --surface-inset:     var(--color-neutral-900);
+      --surface-overlay:   hsla(220, 30%, 6%, 0.85);
+
+      --text-primary:   var(--color-neutral-50);
+      --text-secondary: var(--color-neutral-400);
+      --text-tertiary:  var(--color-neutral-500);
+      --text-disabled:  var(--color-neutral-600);
+      --text-inverse:   var(--color-neutral-950);
+      --text-accent:    var(--color-primary-400);
+
+      --border-default: var(--color-neutral-700);
+      --border-subtle:  var(--color-neutral-800);
+      --border-strong:  var(--color-neutral-600);
+    }
+  }
+
+} /* end @layer tokens */

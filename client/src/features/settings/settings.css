@@ -1,0 +1,249 @@
+/* ============================================
+   SETTINGS PAGE STYLES
+   ============================================ */
+
+.settings-page {
+  max-width: 960px;
+}
+
+/* Settings Sections */
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.settings-section {
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+  transition: box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.settings-section:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-bg);
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-section-title h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.settings-section-title .settings-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.settings-icon-primary { background: var(--color-primary); }
+.settings-icon-accent { background: var(--color-accent); color: var(--neutral-900) !important; }
+.settings-icon-success { background: var(--color-success); }
+.settings-icon-info { background: var(--color-info); }
+.settings-icon-danger { background: var(--color-danger); }
+.settings-icon-warning { background: var(--color-warning); }
+
+.settings-section-body {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Setting Row */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+
+.setting-row + .setting-row {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+}
+
+.setting-info {
+  flex: 1;
+}
+
+.setting-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.setting-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}
+
+.setting-action {
+  flex-shrink: 0;
+}
+
+/* Settings Form Grid */
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .settings-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-form-grid.full-width {
+  grid-template-columns: 1fr;
+}
+
+/* Restaurant Logo Upload */
+.logo-upload-area {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface-bg);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border-default);
+  transition: border-color var(--duration-normal) var(--ease-default);
+}
+
+.logo-upload-area:hover {
+  border-color: var(--color-primary);
+}
+
+.logo-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-2xl);
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+}
+
+.logo-upload-info h4 {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-1);
+}
+
+.logo-upload-info p {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* Danger Zone */
+.danger-zone {
+  border-color: var(--color-danger-light);
+}
+
+.danger-zone .settings-section-header {
+  background: hsl(0, 72%, 98%);
+}
+
+.btn-danger-outline {
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  background: transparent;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.btn-danger-outline:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Save Banner */
+.settings-save-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-4) var(--space-6);
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  z-index: var(--z-sticky);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  margin: 0 calc(-1 * var(--space-6));
+  margin-bottom: calc(-1 * var(--space-6));
+}
+
+.settings-save-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-right: auto;
+}
+
+/* Theme Selector */
+.theme-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.theme-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-default);
+  background: transparent;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.theme-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.theme-btn.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-50);
+  color: var(--color-accent-dark);
+}

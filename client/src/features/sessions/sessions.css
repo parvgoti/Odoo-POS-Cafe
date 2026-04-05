@@ -1,0 +1,112 @@
+/* === Session Active Card === */
+.session-active-card {
+  position: relative;
+  background: linear-gradient(135deg, var(--neutral-900), hsl(25, 40%, 12%));
+  color: #fff;
+  padding: var(--space-8);
+}
+.session-active-dot {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.session-active-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+.session-active-header h3 { color: #fff; }
+.session-active-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+}
+.session-active-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.session-active-stats .text-secondary { color: var(--neutral-400); }
+
+/* === Error Banner === */
+.session-error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: hsla(0, 50%, 40%, 0.15);
+  border: 1px solid hsla(0, 50%, 50%, 0.3);
+  border-radius: var(--radius-lg);
+  color: hsl(0, 70%, 70%);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+.session-error-banner button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--text-lg);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.session-error-banner button:hover { opacity: 1; }
+
+/* === POS Session Gate === */
+.pos-session-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--neutral-950);
+}
+.pos-session-gate-card {
+  text-align: center;
+  padding: var(--space-12);
+  max-width: 480px;
+}
+.pos-session-gate-icon {
+  color: var(--color-warning);
+  margin-bottom: var(--space-5);
+}
+.pos-session-gate-card h2 {
+  color: #fff;
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-3);
+}
+.pos-session-gate-card p {
+  color: var(--neutral-400);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+}
+
+/* === POS Session Indicator in Top Bar === */
+.pos-session-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: hsl(142, 71%, 45%);
+  font-weight: 600;
+}
+.pos-session-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(142, 71%, 45%);
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@media (max-width: 640px) {
+  .session-active-stats { grid-template-columns: repeat(2, 1fr); }
+}

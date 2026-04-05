@@ -1,0 +1,279 @@
+// ============================================================
+// Prisma Schema — Database Mastery Skill
+// Production-ready Prisma 6 schema template (2026)
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "metrics", "views", "relationJoins"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+// =============================================
+// USER MODULE
+// =============================================
+model User {
+  id             String      @id @default(cuid())
+  email          String      @unique
+  passwordHash   String      @map("password_hash")
+  name           String
+  avatarUrl      String?     @map("avatar_url")
+  role           Role        @default(USER)
+  status         UserStatus  @default(ACTIVE)
+  emailVerified  Boolean     @default(false) @map("email_verified")
+  loginCount     Int         @default(0) @map("login_count")
+  lastLoginAt    DateTime?   @map("last_login_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+
+  // Relations
+  profile        Profile?
+  posts          Post[]
+  comments       Comment[]
+  sessions       Session[]
+  orders         Order[]
+  notifications  Notification[]
+
+  @@map("users")
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([role, status])
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  bio       String?  @db.Text
+  website   String?
+  location  String?
+  company   String?
+  social    Json     @default("{}")
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?  @map("user_agent")
+  ipAddress  String?  @map("ip_address")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("sessions")
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// =============================================
+// CONTENT MODULE
+// =============================================
+model Post {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String     @db.Text
+  excerpt     String?    @db.VarChar(300)
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?  @map("published_at")
+  viewCount   Int        @default(0) @map("view_count")
+  authorId    String     @map("author_id")
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  metadata    Json       @default("{}")
+  tags        Tag[]
+  comments    Comment[]
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+
+  @@map("posts")
+  @@index([authorId])
+  @@index([slug])
+  @@index([status, publishedAt])
+  @@index([createdAt])
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  posts Post[]
+
+  @@map("tags")
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  postId    String    @map("post_id")
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String    @map("author_id")
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?   @map("parent_id")
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("comments")
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+// =============================================
+// E-COMMERCE MODULE
+// =============================================
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?     @db.Text
+  price       Decimal     @db.Decimal(10, 2)
+  compareAt   Decimal?    @map("compare_at_price") @db.Decimal(10, 2)
+  stock       Int         @default(0)
+  sku         String?     @unique
+  imageUrls   String[]    @map("image_urls")
+  metadata    Json        @default("{}")
+  isActive    Boolean     @default(true) @map("is_active")
+  categoryId  String?     @map("category_id")
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
+
+  @@map("products")
+  @@index([slug])
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  parentId  String?    @map("parent_id")
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("categories")
+  @@index([slug])
+  @@index([parentId])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  userId     String      @map("user_id")
+  user       User        @relation(fields: [userId], references: [id])
+  status     OrderStatus @default(PENDING)
+  total      Decimal     @db.Decimal(10, 2)
+  currency   String      @default("USD") @db.VarChar(3)
+  notes      String?
+  items      OrderItem[]
+  shippingAddress Json?  @map("shipping_address")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  @@map("orders")
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String  @map("order_id")
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String  @map("product_id")
+  product    Product @relation(fields: [productId], references: [id])
+  quantity   Int
+  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2)
+
+  @@map("order_items")
+  @@index([orderId])
+  @@index([productId])
+}
+
+// =============================================
+// NOTIFICATION MODULE
+// =============================================
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // 'comment', 'like', 'follow', 'order', 'system'
+  title     String
+  body      String?
+  data      Json     @default("{}")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// =============================================
+// AUDIT LOG
+// =============================================
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  tableName  String   @map("table_name")
+  recordId   String   @map("record_id")
+  action     String   // INSERT, UPDATE, DELETE
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  changedBy  String?  @map("changed_by")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+  @@index([tableName, recordId])
+  @@index([changedBy])
+  @@index([createdAt])
+}
