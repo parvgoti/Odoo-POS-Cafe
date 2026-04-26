@@ -83,15 +83,51 @@ export default function ProductsPage() {
 
   async function handleSave(productData) {
     try {
+      // Separate variants from the product fields — variants go in a different table
+      const { variants: variantData, ...productFields } = productData;
+
+      let productId;
       if (editProduct) {
-        const { error } = await supabase.from('products').update(productData).eq('id', editProduct.id);
+        const { error } = await supabase.from('products').update(productFields).eq('id', editProduct.id);
         if (error) throw error;
+        productId = editProduct.id;
       } else {
-        const { error } = await supabase.from('products').insert(productData);
+        const { data, error } = await supabase.from('products').insert(productFields).select('id').single();
         if (error) throw error;
+        productId = data.id;
       }
+
+      // Save variants into the product_variants table
+      if (productId) {
+        // Delete existing variants for this product first
+        await supabase.from('product_variants').delete().eq('product_id', productId);
+
+        // Insert new variants if any
+        if (variantData && variantData.length > 0) {
+          const rows = [];
+          variantData.forEach(group => {
+            if (group.attribute && group.values?.length > 0) {
+              group.values.forEach(val => {
+                if (val.label) {
+                  rows.push({
+                    product_id: productId,
+                    attribute_name: group.attribute,
+                    attribute_value: val.label,
+                    extra_price: Number(val.extra_price) || 0,
+                  });
+                }
+              });
+            }
+          });
+          if (rows.length > 0) {
+            const { error: variantError } = await supabase.from('product_variants').insert(rows);
+            if (variantError) console.warn('Variant save warning:', variantError.message);
+          }
+        }
+      }
+
       setShowModal(false);
-      fetchProducts(); // Refresh from server
+      fetchProducts();
     } catch (err) {
       console.error('Save error:', err);
       alert('Error saving product: ' + err.message);
@@ -270,7 +306,7 @@ function ProductModal({ product, categories, onSave, onClose }) {
       tax_percent: Number(form.tax_percent),
       category_id: form.category_id || null,
       sort_order: Number(form.sort_order),
-      variants: variants.length > 0 ? variants : null,
+      variants: variants, // passed separately, not inserted into products table
     });
     setSaving(false);
   }
