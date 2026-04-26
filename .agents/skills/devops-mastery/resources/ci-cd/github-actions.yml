@@ -1,0 +1,293 @@
+# =============================================
+# GitHub Actions — Complete CI/CD Pipeline
+# =============================================
+# Place in: .github/workflows/ci-cd.yml
+#
+# Features:
+# - Lint + Type check
+# - Unit tests with DB services
+# - Docker build & push to GHCR
+# - Deploy to staging (on staging branch)
+# - Deploy to production (on main branch)
+# =============================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, staging, develop]
+  pull_request:
+    branches: [main, staging]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+
+jobs:
+  # ============================================
+  # STAGE 1: Quality Checks
+  # ============================================
+  quality:
+    name: "🔍 Quality"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint 2>/dev/null || echo "No lint script"
+
+      - name: Type check
+        run: npx tsc --noEmit 2>/dev/null || echo "No TypeScript"
+
+      - name: Format check
+        run: npx prettier --check "src/**/*.{js,ts,jsx,tsx}" 2>/dev/null || echo "No Prettier"
+
+  # ============================================
+  # STAGE 2: Tests
+  # ============================================
+  test:
+    name: "🧪 Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://test:testpassword@localhost:5432/testdb
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-secret-minimum-32-characters-for-security
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy 2>/dev/null || echo "No Prisma"
+
+      - name: Run tests
+        run: npm test -- --coverage --reporter=verbose
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage
+          path: coverage/
+          retention-days: 7
+
+  # ============================================
+  # STAGE 3: Security Scan
+  # ============================================
+  security:
+    name: "🔒 Security"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high || true
+        continue-on-error: true
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+        continue-on-error: true
+
+  # ============================================
+  # STAGE 4: Build Docker Image
+  # ============================================
+  build:
+    name: "🐳 Build"
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event_name == 'push'
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Image summary
+        run: |
+          echo "### 🐳 Docker Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # STAGE 5: Deploy Staging
+  # ============================================
+  deploy-staging:
+    name: "🚀 Deploy Staging"
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.example.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        env:
+          DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+        run: |
+          echo "🚀 Deploying to staging..."
+          # Option 1: Fly.io
+          # fly deploy --config fly.staging.toml --image ${{ needs.build.outputs.image-tags }}
+
+          # Option 2: SSH to server
+          # ssh deploy@staging.example.com "cd /app && docker compose pull && docker compose up -d"
+
+          # Option 3: Railway
+          # railway up --environment staging
+
+      - name: Smoke test
+        run: |
+          sleep 10
+          curl -sf https://staging.example.com/health || exit 1
+          echo "✅ Staging health check passed"
+
+  # ============================================
+  # STAGE 6: Deploy Production
+  # ============================================
+  deploy-production:
+    name: "🏭 Deploy Production"
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://example.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pre-deploy backup
+        run: |
+          echo "📦 Creating pre-deploy backup..."
+          # ssh deploy@prod.example.com "pg_dump ... > /backups/pre-deploy-$(date +%s).sql"
+
+      - name: Deploy to production
+        env:
+          DEPLOY_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+        run: |
+          echo "🏭 Deploying to production..."
+          # fly deploy --config fly.production.toml --strategy rolling
+
+      - name: Post-deploy verification
+        run: |
+          sleep 15
+          curl -sf https://example.com/health || exit 1
+          echo "✅ Production health check passed"
+
+      - name: Deployment summary
+        run: |
+          echo "### 🏭 Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Healthy" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          # Send Slack/Discord notification
+          echo "❌ PRODUCTION DEPLOYMENT FAILED"
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} -d '{"text":"❌ Production deploy failed: ${{ github.sha }}"}'

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bento Dashboard — UI/UX Mastery Example</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Design Tokens */
+    :root {
+      --hue-primary: 245;
+      --surface-ground: hsl(220, 25%, 7%);
+      --surface-card: hsl(220, 20%, 11%);
+      --surface-section: hsl(220, 18%, 14%);
+      --surface-hover: hsl(220, 15%, 17%);
+      --text-heading: hsl(220, 15%, 93%);
+      --text-body: hsl(220, 10%, 72%);
+      --text-muted: hsl(220, 8%, 50%);
+      --color-primary-500: hsl(245, 78%, 52%);
+      --color-primary-400: hsl(245, 82%, 63%);
+      --color-success-500: hsl(152, 68%, 45%);
+      --color-warning-500: hsl(38, 95%, 55%);
+      --color-error-500: hsl(0, 84%, 60%);
+      --radius-xl: 1rem;
+      --radius-2xl: 1.5rem;
+      --font-display: 'Outfit', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--surface-ground);
+      color: var(--text-body);
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .dashboard { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .dashboard-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 1.5rem + 1.5vw, 2.5rem);
+      font-weight: 800;
+      color: var(--text-heading);
+      margin-bottom: 8px;
+    }
+    .dashboard-subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    /* Bento Grid */
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: minmax(180px, auto);
+      gap: 16px;
+    }
+    .tile {
+      background: var(--surface-card);
+      border: 1px solid hsla(220, 15%, 20%, 0.6);
+      border-radius: var(--radius-2xl);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                  box-shadow 0.25s ease,
+                  border-color 0.2s ease;
+      overflow: hidden;
+      position: relative;
+    }
+    .tile:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px hsla(0, 0%, 0%, 0.4);
+      border-color: hsla(220, 15%, 30%, 0.8);
+    }
+    .tile--wide { grid-column: span 2; }
+    .tile--tall { grid-row: span 2; }
+    .tile--hero { grid-column: span 2; grid-row: span 2; }
+
+    .tile-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .tile-value {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 1.5rem + 2vw, 3rem);
+      font-weight: 700;
+      color: var(--text-heading);
+      line-height: 1.1;
+    }
+    .tile-change {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .tile-change.up { color: var(--color-success-500); }
+    .tile-change.down { color: var(--color-error-500); }
+
+    /* Hero tile gradient */
+    .tile--hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        hsla(245, 78%, 52%, 0.15),
+        transparent 60%
+      );
+      pointer-events: none;
+    }
+
+    .tile-chart {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      padding-top: 16px;
+    }
+    .bar {
+      flex: 1;
+      border-radius: 4px 4px 0 0;
+      background: var(--color-primary-400);
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+      min-height: 8px;
+    }
+    .tile:hover .bar { opacity: 1; }
+
+    .dot-indicator {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .dot-green  { background: var(--color-success-500); }
+    .dot-yellow { background: var(--color-warning-500); }
+    .dot-red    { background: var(--color-error-500); }
+
+    @media (max-width: 768px) {
+      .bento { grid-template-columns: repeat(2, 1fr); }
+      .tile--hero { grid-column: span 2; grid-row: span 1; }
+    }
+    @media (max-width: 480px) {
+      .bento { grid-template-columns: 1fr; }
+      .tile--wide, .tile--hero { grid-column: span 1; }
+    }
+
+    /* Entrance animation */
+    .tile {
+      opacity: 0;
+      animation: fadeInUp 0.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+    }
+    .tile:nth-child(1) { animation-delay: 50ms; }
+    .tile:nth-child(2) { animation-delay: 100ms; }
+    .tile:nth-child(3) { animation-delay: 150ms; }
+    .tile:nth-child(4) { animation-delay: 200ms; }
+    .tile:nth-child(5) { animation-delay: 250ms; }
+    .tile:nth-child(6) { animation-delay: 300ms; }
+    .tile:nth-child(7) { animation-delay: 350ms; }
+    .tile:nth-child(8) { animation-delay: 400ms; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1 class="dashboard-title">Analytics Overview</h1>
+    <p class="dashboard-subtitle">Welcome back. Here's what's happening today.</p>
+
+    <div class="bento">
+      <!-- Hero Tile -->
+      <div class="tile tile--hero">
+        <div>
+          <span class="tile-label">Total Revenue</span>
+          <div class="tile-value">$84,254</div>
+          <div class="tile-change up">↑ 12.5% from last month</div>
+        </div>
+        <div class="tile-chart">
+          <div class="bar" style="height:40%"></div>
+          <div class="bar" style="height:55%"></div>
+          <div class="bar" style="height:35%"></div>
+          <div class="bar" style="height:70%"></div>
+          <div class="bar" style="height:60%"></div>
+          <div class="bar" style="height:85%"></div>
+          <div class="bar" style="height:75%"></div>
+          <div class="bar" style="height:90%"></div>
+          <div class="bar" style="height:65%"></div>
+          <div class="bar" style="height:80%"></div>
+          <div class="bar" style="height:95%"></div>
+          <div class="bar" style="height:100%"></div>
+        </div>
+      </div>
+
+      <!-- Stat Tiles -->
+      <div class="tile">
+        <span class="tile-label">Active Users</span>
+        <div class="tile-value">2,847</div>
+        <div class="tile-change up">↑ 8.2%</div>
+      </div>
+
+      <div class="tile">
+        <span class="tile-label">Conversion Rate</span>
+        <div class="tile-value">3.24%</div>
+        <div class="tile-change down">↓ 1.1%</div>
+      </div>
+
+      <!-- Wide Tile -->
+      <div class="tile tile--wide">
+        <span class="tile-label">System Status</span>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+          <div><span class="dot-indicator dot-green"></span>API Gateway — Operational</div>
+          <div><span class="dot-indicator dot-green"></span>Database — Operational</div>
+          <div><span class="dot-indicator dot-yellow"></span>CDN — Degraded Performance</div>
+          <div><span class="dot-indicator dot-green"></span>Auth Service — Operational</div>
+        </div>
+      </div>
+
+      <div class="tile">
+        <span class="tile-label">Avg. Session</span>
+        <div class="tile-value">4m 32s</div>
+        <div class="tile-change up">↑ 15%</div>
+      </div>
+
+      <div class="tile">
+        <span class="tile-label">Bounce Rate</span>
+        <div class="tile-value">24.8%</div>
+        <div class="tile-change up">↑ 2.3% (worse)</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

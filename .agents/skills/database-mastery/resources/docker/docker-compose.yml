@@ -1,0 +1,126 @@
+# ============================================================
+# Docker Compose — Database Mastery Skill
+# Local development setup for PostgreSQL + Redis + MongoDB (2026)
+# ============================================================
+
+services:
+  # === PostgreSQL 17 ===
+  postgres:
+    image: postgres:17-alpine
+    container_name: db-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass123
+      POSTGRES_DB: appdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d appdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c effective_cache_size=768MB
+        -c maintenance_work_mem=128MB
+        -c work_mem=16MB
+        -c max_connections=100
+        -c log_min_duration_statement=100
+        -c log_statement=mod
+        -c shared_preload_libraries=pg_stat_statements
+
+  # === Redis 8 ===
+  redis:
+    image: redis:8-alpine
+    container_name: db-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --appendfsync everysec
+
+  # === MongoDB 8 ===
+  mongodb:
+    image: mongo:8
+    container_name: db-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: devuser
+      MONGO_INITDB_ROOT_PASSWORD: devpass123
+      MONGO_INITDB_DATABASE: appdb
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # === pgAdmin (PostgreSQL GUI) ===
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: db-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # === Redis Commander (Redis GUI) ===
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: db-redis-gui
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  pgadmin_data:
+
+# ============================================================
+# Usage:
+#   docker compose up -d              Start all services
+#   docker compose up postgres redis   Start only Postgres + Redis
+#   docker compose down                Stop all
+#   docker compose down -v             Stop + delete data volumes
+#
+# Connection strings:
+#   PostgreSQL: postgresql://devuser:devpass123@localhost:5432/appdb
+#   Redis:      redis://localhost:6379
+#   MongoDB:    mongodb://devuser:devpass123@localhost:27017/appdb
+#   pgAdmin:    http://localhost:5050
+#   Redis GUI:  http://localhost:8081
+# ============================================================

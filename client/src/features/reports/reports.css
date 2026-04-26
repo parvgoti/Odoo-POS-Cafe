@@ -1,0 +1,2 @@
+.report-filters { display: flex; align-items: center; justify-content: space-between; }
+@media (max-width: 640px) { .report-filters { flex-direction: column; gap: var(--space-3); align-items: stretch; } }

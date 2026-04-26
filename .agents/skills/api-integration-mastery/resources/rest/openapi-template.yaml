@@ -1,0 +1,459 @@
+# =============================================
+# API & Integration Mastery — OpenAPI 3.1 Template
+# =============================================
+# Complete REST API documentation template.
+# Customize this for your specific API.
+#
+# Validate: https://editor.swagger.io/
+# Generate client: npx @openapitools/openapi-generator-cli generate
+# =============================================
+
+openapi: 3.1.0
+info:
+  title: My Application API
+  version: 1.0.0
+  description: |
+    Production REST API with authentication, user management,
+    content management, and file uploads.
+
+    ## Authentication
+    All endpoints (except auth) require a Bearer token.
+    Include `Authorization: Bearer <token>` in requests.
+
+    ## Rate Limiting
+    - Standard: 100 requests per 15 minutes
+    - Auth endpoints: 20 requests per 15 minutes
+    - File uploads: 30 per hour
+
+    ## Errors
+    All errors follow a consistent JSON format:
+    ```json
+    {
+      "status": "error",
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Human-readable description",
+        "details": [...]
+      }
+    }
+    ```
+  contact:
+    name: API Support
+    email: api-support@example.com
+    url: https://docs.example.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging-api.example.com/v1
+    description: Staging
+  - url: http://localhost:3000/api/v1
+    description: Local Development
+
+tags:
+  - name: Auth
+    description: Authentication & authorization
+  - name: Users
+    description: User management
+  - name: Posts
+    description: Content management
+  - name: Files
+    description: File upload & management
+
+
+# =============================================
+# SECURITY
+# =============================================
+security:
+  - BearerAuth: []
+
+
+# =============================================
+# PATHS
+# =============================================
+paths:
+
+  # ---- AUTH ----
+  /auth/register:
+    post:
+      summary: Register new user
+      operationId: register
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                  example: MyP@ssw0rd!
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data: { $ref: '#/components/schemas/User' }
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      summary: Login with credentials
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data: { $ref: '#/components/schemas/User' }
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      operationId: refreshToken
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me:
+    get:
+      summary: Get current user
+      operationId: getCurrentUser
+      tags: [Auth]
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+
+  # ---- USERS ----
+  /users:
+    get:
+      summary: List users
+      operationId: listUsers
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: role
+          in: query
+          schema: { type: string, enum: [USER, ADMIN, MODERATOR] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE, SUSPENDED] }
+        - name: q
+          in: query
+          description: Search by name or email
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/User' }
+                  meta: { $ref: '#/components/schemas/Pagination' }
+
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      operationId: getUser
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      summary: Update user
+      operationId: updateUser
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUser' }
+      responses:
+        '200':
+          description: User updated
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    delete:
+      summary: Delete user
+      operationId: deleteUser
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: User deleted
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---- FILES ----
+  /files/upload-url:
+    post:
+      summary: Get presigned upload URL
+      operationId: getUploadUrl
+      tags: [Files]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, contentType]
+              properties:
+                filename: { type: string, example: photo.jpg }
+                contentType: { type: string, example: image/jpeg }
+                folder: { type: string, example: avatars }
+      responses:
+        '200':
+          description: Presigned URL for direct upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl: { type: string, format: uri }
+                  key: { type: string }
+                  publicUrl: { type: string, format: uri }
+
+
+# =============================================
+# COMPONENTS
+# =============================================
+components:
+
+  # ---- Security Schemes ----
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token
+
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for server-to-server
+
+  # ---- Parameters ----
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Resource ID
+
+    PageParam:
+      name: page
+      in: query
+      schema: { type: integer, default: 1, minimum: 1 }
+
+    LimitParam:
+      name: limit
+      in: query
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+
+    SortParam:
+      name: sort
+      in: query
+      description: "Sort field. Prefix with - for descending (e.g. -createdAt)"
+      schema: { type: string }
+
+  # ---- Schemas ----
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string, format: cuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        avatar: { type: string, format: uri, nullable: true }
+        role: { type: string, enum: [USER, ADMIN, MODERATOR] }
+        status: { type: string, enum: [ACTIVE, INACTIVE, SUSPENDED] }
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UpdateUser:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email }
+        avatar: { type: string, format: uri, nullable: true }
+
+    Pagination:
+      type: object
+      properties:
+        total: { type: integer, example: 150 }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        totalPages: { type: integer, example: 8 }
+        hasNext: { type: boolean }
+        hasPrev: { type: boolean }
+
+    Error:
+      type: object
+      properties:
+        status: { type: string, example: error }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+        requestId: { type: string }
+
+  # ---- Responses ----
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error: { code: UNAUTHORIZED, message: "Invalid or expired token" }
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error: { code: FORBIDDEN, message: "Insufficient permissions" }
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error: { code: NOT_FOUND, message: "Resource not found" }
+
+    ValidationError:
+      description: Invalid request data
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error:
+              code: VALIDATION_ERROR
+              message: "Invalid input data"
+              details:
+                - { field: email, message: "Invalid email format" }
+
+    Conflict:
+      description: Resource conflict (e.g., duplicate)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error: { code: CONFLICT, message: "Email already registered" }
+
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            status: error
+            error: { code: RATE_LIMIT, message: "Too many requests" }

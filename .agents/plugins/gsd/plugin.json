@@ -1,0 +1,48 @@
+{
+  "name": "gsd",
+  "displayName": "GSD — Get Stuff Done",
+  "version": "1.0.0",
+  "description": "The ultimate productivity plugin that orchestrates all mastery skills into rapid, end-to-end workflows. Scaffold projects, build features, review code, debug issues, and deploy to production — all through single-command workflows.",
+  "author": "Abhi Gajera",
+  "skills": [
+    "skills/project-scaffolder",
+    "skills/code-reviewer",
+    "skills/task-executor"
+  ],
+  "workflows": [
+    "workflows/new-project.md",
+    "workflows/feature-flow.md",
+    "workflows/debug-flow.md",
+    "workflows/deploy-flow.md",
+    "workflows/code-review.md",
+    "workflows/quick-api.md"
+  ],
+  "agents": [
+    "agents/gsd-orchestrator.md"
+  ],
+  "integrates": [
+    "frontend-mastery",
+    "backend-mastery",
+    "uiux-mastery",
+    "database-mastery",
+    "api-integration-mastery",
+    "devops-mastery",
+    "testing-debugging-mastery"
+  ],
+  "config": {
+    "defaultFramework": "express",
+    "defaultFrontend": "react",
+    "defaultDatabase": "postgresql",
+    "defaultORM": "prisma",
+    "defaultTestRunner": "vitest",
+    "defaultE2E": "playwright",
+    "defaultDeployTarget": "fly.io",
+    "codeStyle": {
+      "semicolons": true,
+      "singleQuote": true,
+      "trailingComma": "es5",
+      "tabWidth": 2,
+      "printWidth": 100
+    }
+  }
+}

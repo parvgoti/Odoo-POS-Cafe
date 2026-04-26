@@ -1,0 +1,161 @@
+# =============================================
+# Backend Mastery — Docker Compose (2026)
+# =============================================
+# Development environment with app, PostgreSQL,
+# Redis, and optional services.
+# =============================================
+
+version: '3.9'
+
+services:
+  # ---- Application ----
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: app
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file: .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-myapp}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount source for hot-reload in development
+      - ./src:/app/src:ro
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ---- PostgreSQL 17 ----
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-myapp}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: init scripts
+      # - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-myapp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ---- Redis 8 ----
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --tcp-backlog 511
+      --timeout 0
+      --tcp-keepalive 300
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ---- MongoDB 8 (optional — uncomment if needed) ----
+  # mongo:
+  #   image: mongo:8
+  #   container_name: mongo
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+  #     MONGO_INITDB_DATABASE: ${MONGO_DB:-myapp}
+  #   ports:
+  #     - "${MONGO_PORT:-27017}:27017"
+  #   volumes:
+  #     - mongo_data:/data/db
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+  #   networks:
+  #     - backend
+
+  # ---- Adminer (Database UI — dev only) ----
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - backend
+    profiles:
+      - dev-tools
+
+  # ---- RedisInsight (Redis UI — dev only) ----
+  # redisinsight:
+  #   image: redis/redisinsight:latest
+  #   container_name: redisinsight
+  #   ports:
+  #     - "5540:5540"
+  #   depends_on:
+  #     - redis
+  #   restart: unless-stopped
+  #   networks:
+  #     - backend
+  #   profiles:
+  #     - dev-tools
+
+  # ---- Mailhog (Email testing — dev only) ----
+  # mailhog:
+  #   image: mailhog/mailhog:latest
+  #   container_name: mailhog
+  #   ports:
+  #     - "1025:1025"   # SMTP
+  #     - "8025:8025"   # Web UI
+  #   restart: unless-stopped
+  #   networks:
+  #     - backend
+  #   profiles:
+  #     - dev-tools
+
+# ---- Volumes ----
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  # mongo_data:
+  #   driver: local
+
+# ---- Networks ----
+networks:
+  backend:
+    driver: bridge

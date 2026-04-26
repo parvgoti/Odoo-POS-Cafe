@@ -1,0 +1,98 @@
+# =============================================
+# Multi-Stage Dockerfile — Node.js 22 (Production)
+# =============================================
+# Usage:
+#   docker build -t myapp .
+#   docker run -p 3000:3000 --env-file .env myapp
+# =============================================
+
+# Stage 1: Dependencies
+FROM node:22-alpine AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+
+RUN \
+  if [ -f pnpm-lock.yaml ]; then \
+    corepack enable && pnpm install --frozen-lockfile --prod; \
+  elif [ -f yarn.lock ]; then \
+    yarn install --frozen-lockfile --production; \
+  elif [ -f package-lock.json ]; then \
+    npm ci --omit=dev; \
+  else \
+    npm install --omit=dev; \
+  fi
+
+
+# Stage 2: Build (TypeScript / bundler)
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+RUN \
+  if [ -f pnpm-lock.yaml ]; then \
+    corepack enable && pnpm install --frozen-lockfile; \
+  elif [ -f yarn.lock ]; then \
+    yarn install --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then \
+    npm ci; \
+  else \
+    npm install; \
+  fi
+
+COPY . .
+
+# Generate Prisma client if prisma exists
+RUN if [ -f prisma/schema.prisma ]; then npx prisma generate; fi
+
+# Build if build script exists
+RUN if grep -q '"build"' package.json; then npm run build; fi
+
+
+# Stage 3: Production
+FROM node:22-alpine AS production
+
+# Metadata
+LABEL maintainer="devops@example.com"
+LABEL description="Production Node.js application"
+LABEL version="1.0.0"
+
+WORKDIR /app
+
+# Security: non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Process management: proper signal handling
+RUN apk add --no-cache dumb-init curl && rm -rf /var/cache/apk/*
+
+# Copy production artifacts
+COPY --from=deps --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=build --chown=appuser:appgroup /app/package.json ./
+
+# Copy source or built output
+COPY --from=build --chown=appuser:appgroup /app/src ./src
+# Uncomment if using TypeScript build output:
+# COPY --from=build --chown=appuser:appgroup /app/dist ./dist
+
+# Copy Prisma artifacts if they exist
+COPY --from=build --chown=appuser:appgroup /app/prisma ./prisma 2>/dev/null || true
+COPY --from=build --chown=appuser:appgroup /app/node_modules/.prisma ./node_modules/.prisma 2>/dev/null || true
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start with dumb-init (PID 1 signal handling)
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "src/server.js"]

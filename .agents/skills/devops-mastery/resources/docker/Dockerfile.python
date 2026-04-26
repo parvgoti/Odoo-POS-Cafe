@@ -1,0 +1,81 @@
+# =============================================
+# Multi-Stage Dockerfile — Python 3.13 (Production)
+# =============================================
+# Usage:
+#   docker build -t myapp -f Dockerfile.python .
+#   docker run -p 8000:8000 --env-file .env myapp
+# =============================================
+
+# Stage 1: Base
+FROM python:3.13-slim AS base
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+
+# Stage 2: Dependencies
+FROM base AS deps
+
+# Install build dependencies for compiled packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt ./
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# If using Poetry:
+# COPY pyproject.toml poetry.lock ./
+# RUN pip install --user poetry && \
+#     python -m poetry export -f requirements.txt --output requirements.txt --without-hashes && \
+#     pip install --user --no-cache-dir -r requirements.txt
+
+
+# Stage 3: Production
+FROM base AS production
+
+LABEL maintainer="devops@example.com"
+LABEL description="Production Python application"
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Security: non-root user
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup appuser
+
+# Copy installed packages from deps
+COPY --from=deps /root/.local /home/appuser/.local
+
+# Copy application code
+COPY --chown=appuser:appgroup . .
+
+# Configure PATH
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PORT=8000
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Run with Uvicorn (ASGI)
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--access-log", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "*"]

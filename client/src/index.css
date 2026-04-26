@@ -1,0 +1,5 @@
+/* Import all style layers in correct order */
+@import './styles/design-system.css';
+@import './styles/animations.css';
+@import './styles/components.css';
+@import './styles/utilities.css';
