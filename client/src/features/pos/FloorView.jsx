@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Users, Clock, DollarSign } from 'lucide-react';
+import { Users, DollarSign } from 'lucide-react';
 
 export default function FloorView() {
   const [floors, setFloors] = useState([]);
@@ -10,7 +10,33 @@ export default function FloorView() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+
+    // ── Realtime subscription: update table status instantly ──────────
+    const channel = supabase
+      .channel('floor-tables-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            // Update just the changed table in local state — no full re-fetch needed
+            setTables(prev =>
+              prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t)
+            );
+          } else {
+            // INSERT or DELETE — do a full refresh
+            fetchData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function fetchData() {
     try {
@@ -19,7 +45,7 @@ export default function FloorView() {
 
       if (floorsData) setFloors(floorsData);
       if (tablesData) setTables(tablesData);
-      if (floorsData?.length > 0) setActiveFloor(floorsData[0].id);
+      if (floorsData?.length > 0) setActiveFloor(prev => prev || floorsData[0].id);
     } catch (err) {
       console.error('Error:', err);
     } finally {
