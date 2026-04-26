@@ -72,10 +72,8 @@ export default function PaymentScreen() {
         payment_status: 'paid',
       }).eq('id', orderId);
 
-      // 3. Set table back to AVAILABLE (not occupied)
-      if (order?.table_id) {
-        await supabase.from('tables').update({ status: 'available' }).eq('id', order.table_id);
-      }
+      // NOTE: Table stays 'occupied' — staff must manually clear it
+      // using the "Clear Table" button on the success screen.
 
       const method = paymentMethods.find(m => m.id === selectedMethod);
       setPaymentInfo({
@@ -93,6 +91,13 @@ export default function PaymentScreen() {
       setPaying(false);
       alert('Payment failed: ' + err.message);
     }
+  }
+
+  async function clearTable() {
+    if (order?.table_id) {
+      await supabase.from('tables').update({ status: 'available' }).eq('id', order.table_id);
+    }
+    navigate('/pos/tables');
   }
 
   // Generate simple QR code SVG for UPI
@@ -226,12 +231,32 @@ export default function PaymentScreen() {
           <h2 className="font-display">Payment Successful!</h2>
           <p className="font-mono text-2xl" style={{ color: 'var(--color-success)' }}>${total.toFixed(2)}</p>
           <p className="text-sm text-tertiary mt-2">via {paymentInfo?.method}</p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+
+          {/* Table info */}
+          {order?.tables?.table_number && (
+            <p className="text-sm mt-1" style={{ color: 'var(--neutral-400)' }}>
+              Table {order.tables.table_number} — bill paid ✓
+            </p>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)', width: '100%', maxWidth: 280 }}>
             <button className="btn btn-secondary" onClick={() => setShowReceipt(true)}>
               <Printer size={16} /> View Receipt
             </button>
-            <button className="btn btn-accent" onClick={() => navigate('/pos/tables')}>
-              Back to Tables
+            {/* Clear Table — frees the table for next customer */}
+            <button
+              className="btn btn-accent"
+              onClick={clearTable}
+            >
+              ✓ Clear Table &amp; Back
+            </button>
+            {/* Back without clearing — table stays occupied */}
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-400)' }}
+              onClick={() => navigate('/pos/tables')}
+            >
+              Back to Tables (keep occupied)
             </button>
           </div>
         </div>
