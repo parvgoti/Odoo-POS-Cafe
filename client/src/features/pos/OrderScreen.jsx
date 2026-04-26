@@ -154,7 +154,12 @@ export default function OrderScreen() {
       await supabase.from('order_items').insert(orderItems);
 
       // Mark table as occupied
-      await supabase.from('tables').update({ status: 'occupied' }).eq('id', tableId);
+      const { error: tableError } = await supabase
+        .from('tables')
+        .update({ status: 'occupied' })
+        .eq('id', tableId);
+      if (tableError) console.error('Table status update failed:', tableError);
+
 
       // Create kitchen ticket
       await supabase.from('kitchen_tickets').insert({

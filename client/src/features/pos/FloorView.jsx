@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Users, DollarSign } from 'lucide-react';
 
@@ -9,11 +9,17 @@ export default function FloorView() {
   const [activeFloor, setActiveFloor] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // ── Re-fetch every time this route becomes active ─────────────────
+  // location.key changes on every navigation, so coming back from
+  // OrderScreen always triggers a fresh fetch with latest table statuses
   useEffect(() => {
     fetchData();
+  }, [location.key]);
 
-    // ── Realtime subscription: update table status instantly ──────────
+  // ── Realtime subscription: live updates while floor view is open ──
+  useEffect(() => {
     const channel = supabase
       .channel('floor-tables-live')
       .on(
@@ -21,12 +27,10 @@ export default function FloorView() {
         { event: '*', schema: 'public', table: 'tables' },
         (payload) => {
           if (payload.eventType === 'UPDATE') {
-            // Update just the changed table in local state — no full re-fetch needed
             setTables(prev =>
               prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t)
             );
           } else {
-            // INSERT or DELETE — do a full refresh
             fetchData();
           }
         }
@@ -47,7 +51,7 @@ export default function FloorView() {
       if (tablesData) setTables(tablesData);
       if (floorsData?.length > 0) setActiveFloor(prev => prev || floorsData[0].id);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('FloorView fetch error:', err);
     } finally {
       setLoading(false);
     }
