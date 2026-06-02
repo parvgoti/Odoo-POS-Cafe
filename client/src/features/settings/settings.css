@@ -167,11 +167,16 @@
 
 /* Danger Zone */
 .danger-zone {
-  border-color: var(--color-danger-light);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .danger-zone .settings-section-header {
-  background: hsl(0, 72%, 98%);
+  background: rgba(239, 68, 68, 0.08);
+  border-bottom-color: rgba(239, 68, 68, 0.15);
+}
+
+.danger-zone .settings-section-title h3 {
+  color: var(--color-danger);
 }
 
 .btn-danger-outline {
