@@ -171,7 +171,7 @@ export default function LoginPage() {
                 <span className="checkmark" />
                 <span>Remember me</span>
               </label>
-              <a href="#" className="auth-link">Forgot Password?</a>
+              <Link to="/forgot-password" className="auth-link">Forgot Password?</Link>
             </div>
 
             <button
