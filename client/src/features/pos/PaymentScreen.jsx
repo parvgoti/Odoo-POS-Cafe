@@ -358,10 +358,18 @@ export default function PaymentScreen() {
           fontSize: 'var(--text-xs)',
           marginBottom: 'var(--space-4)',
         }}>
-          <p style={{ color: '#72a0e5', fontWeight: 600, marginBottom: 3 }}>🧪 Test Mode — Use these details</p>
-          <p style={{ color: 'var(--neutral-300)' }}>Card: <span style={{ fontFamily: 'monospace' }}>4111 1111 1111 1111</span></p>
-          <p style={{ color: 'var(--neutral-400)' }}>Expiry: any future &nbsp;|&nbsp; CVV: any 3 digits &nbsp;|&nbsp; OTP: <span style={{ fontFamily: 'monospace', color: 'var(--neutral-200)' }}>1234</span></p>
+          <p style={{ color: '#72a0e5', fontWeight: 600, marginBottom: 6 }}>🧪 Test Mode — Use any of these</p>
+          <p style={{ color: 'var(--neutral-300)', marginBottom: 2 }}>
+            <span style={{ color: 'var(--neutral-500)' }}>UPI (easiest):</span>{' '}
+            <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>success@razorpay</span>
+          </p>
+          <p style={{ color: 'var(--neutral-300)', marginBottom: 2 }}>
+            <span style={{ color: 'var(--neutral-500)' }}>Indian Card:</span>{' '}
+            <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>5267 3181 8797 5449</span>
+          </p>
+          <p style={{ color: 'var(--neutral-400)' }}>Expiry: 12/26 &nbsp;|&nbsp; CVV: 123 &nbsp;|&nbsp; OTP: <span style={{ fontFamily: 'monospace', color: 'var(--neutral-200)' }}>1234</span></p>
         </div>
+
 
         {/* ── Divider ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
