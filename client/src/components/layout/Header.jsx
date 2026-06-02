@@ -5,13 +5,17 @@ import { getActiveSessionId } from '../../features/sessions/SessionPage';
 import './header.css';
 
 export default function Header({ onMenuToggle }) {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return (localStorage.getItem('pos-theme') || 'dark') === 'dark';
+  });
   const navigate = useNavigate();
 
   function toggleTheme() {
     const next = !darkMode;
     setDarkMode(next);
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    const theme = next ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('pos-theme', theme);
   }
 
   function handleOpenPOS() {

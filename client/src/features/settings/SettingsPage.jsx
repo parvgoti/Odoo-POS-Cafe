@@ -30,11 +30,16 @@ export default function SettingsPage() {
     printer_name: '',
     auto_print_receipt: false,
     auto_print_kitchen: true,
-    theme: 'light',
+    theme: localStorage.getItem('pos-theme') || 'dark',
   });
 
   function update(key, value) {
     setSettings(prev => ({ ...prev, [key]: value }));
+    // Apply theme immediately when changed
+    if (key === 'theme') {
+      document.documentElement.setAttribute('data-theme', value);
+      localStorage.setItem('pos-theme', value);
+    }
   }
 
   async function handleSave() {
