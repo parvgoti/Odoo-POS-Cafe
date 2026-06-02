@@ -2,23 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { loadRazorpayScript } from '../../lib/razorpay';
-import { QRCodeSVG } from 'qrcode.react';
 import {
   Coffee, Plus, Minus, Trash2, ArrowLeft, ChevronRight,
   Banknote, Printer,
-  RotateCcw, Home, PartyPopper, CheckCircle2, Sparkles
+  RotateCcw, Home, PartyPopper, Sparkles
 } from 'lucide-react';
 import './self-ordering.css';
 
 /* ── Constants ─────────────────────────────────────────── */
 const STEP = { TABLE: 'table', MENU: 'menu', CART: 'cart', PAYMENT: 'payment', RECEIPT: 'receipt', THANKS: 'thanks' };
-const PM_ICONS  = { cash: Banknote, digital: CreditCard, upi: QrCodeIcon };
-const PM_COLORS = { cash: '#22c55e', digital: '#3b82f6', upi: '#f59e0b' };
-const PM_DEFAULT = [
-  { id: 'pm-cash',    name: 'Cash',          type: 'cash',    desc: 'Pay with cash at your table' },
-  { id: 'pm-digital', name: 'Digital / Card', type: 'digital', desc: 'Card, bank transfer or wallet' },
-  { id: 'pm-upi',     name: 'UPI / QR Pay',  type: 'upi',     desc: 'Scan QR with any UPI app' },
-];
+
 
 /* ── INR formatter ─────────────────────────────────────── */
 const inr = (v) => `₹${(+v).toFixed(2)}`;
@@ -102,11 +95,11 @@ export default function SelfOrderingMenu() {
           const id = upi?.upi_id || upi?.config?.upi_id;
           if (id) setUpiId(id);
         } else {
-          setPaymentMethods(PM_DEFAULT);
+          setPaymentMethods([]);
         }
       } catch (e) {
         console.error(e);
-        setPaymentMethods(PM_DEFAULT);
+        setPaymentMethods([]);
       } finally {
         setLoadingData(false);
       }
