@@ -427,16 +427,16 @@ export default function SelfOrderingMenu() {
   if (step === STEP.PAYMENT) {
     const isWorking = razorpayPaying || placing;
     return (
-      <div className="so-inner-screen so-animate-slide-up">
+      <div className="so-inner-screen so-animate-slide-up" style={{ background: 'radial-gradient(ellipse at 30% 20%, #2d1f0a 0%, #1a1209 55%, #0c0804 100%)' }}>
         <div className="so-inner-header">
           <button className="so-back-btn" onClick={() => setStep(STEP.CART)}><ArrowLeft size={20} /></button>
           <h2>Payment</h2>
           <span className="so-amount-chip">{inr(total)}</span>
         </div>
 
-        <div className="so-inner-body--scroll">
+        <div className="so-inner-body--scroll" style={{ background: 'transparent', padding: '0 16px 32px' }}>
           {/* Amount card */}
-          <div className="so-amount-card so-glass-shine">
+          <div className="so-amount-card so-glass-shine" style={{ margin: '16px 0 0' }}>
             <div className="so-amount-label">AMOUNT TO PAY</div>
             <div className="so-amount-value">{inr(total)}</div>
             <div className="so-amount-meta">Table {selectedTable} · {cartCount} item{cartCount !== 1 ? 's' : ''}</div>
@@ -448,14 +448,15 @@ export default function SelfOrderingMenu() {
             disabled={isWorking}
             style={{
               width: '100%', marginTop: 20,
-              padding: '16px 20px',
+              padding: '17px 20px',
               background: razorpayPaying
-                ? 'rgba(7,38,84,0.5)'
+                ? 'rgba(7,38,84,0.6)'
                 : 'linear-gradient(135deg, #072654 0%, #1a4a9e 100%)',
               color: '#fff', border: 'none', borderRadius: 16,
               fontSize: 16, fontWeight: 700, cursor: isWorking ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               transition: 'all 0.2s',
+              boxShadow: '0 6px 24px rgba(7,38,84,0.5)',
             }}
           >
             {razorpayPaying ? (
@@ -472,28 +473,33 @@ export default function SelfOrderingMenu() {
 
           {/* Test mode hint */}
           <div style={{
-            margin: '12px 0 8px',
-            padding: '10px 14px',
-            background: 'rgba(7,38,84,0.2)',
-            border: '1px solid rgba(114,160,229,0.25)',
-            borderRadius: 12,
-            fontSize: 12,
+            margin: '14px 0 0',
+            padding: '12px 16px',
+            background: 'rgba(7,38,84,0.45)',
+            border: '1px solid rgba(114,160,229,0.4)',
+            borderRadius: 14,
+            fontSize: 12.5,
           }}>
-            <p style={{ color: '#72a0e5', fontWeight: 600, marginBottom: 4 }}>🧪 Test Mode</p>
-            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>
-              UPI: <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>success@razorpay</span>
+            <p style={{ color: '#93c5fd', fontWeight: 700, marginBottom: 6, fontSize: 13 }}>🧪 Test Mode Credentials</p>
+            <p style={{ color: 'rgba(255,255,255,0.85)', marginBottom: 4 }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>UPI (easiest): </span>
+              <span style={{ fontFamily: 'monospace', color: '#67e8f9', fontWeight: 600 }}>success@razorpay</span>
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.6)' }}>
-              Card: <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>5267 3181 8797 5449</span>
-              &nbsp;·&nbsp; CVV: 123 &nbsp;·&nbsp; OTP: 1234
+            <p style={{ color: 'rgba(255,255,255,0.85)', marginBottom: 4 }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Card: </span>
+              <span style={{ fontFamily: 'monospace', color: '#67e8f9', fontWeight: 600 }}>5267 3181 8797 5449</span>
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Expiry: 12/26 &nbsp;·&nbsp; CVV: 123 &nbsp;·&nbsp; OTP:&nbsp;
+              <span style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.85)' }}>1234</span>
             </p>
           </div>
 
           {/* OR divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 600, letterSpacing: 2 }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.15)' }} />
           </div>
 
           {/* ── Cash Button (Secondary) ── */}
@@ -502,10 +508,11 @@ export default function SelfOrderingMenu() {
             disabled={isWorking}
             style={{
               width: '100%',
-              padding: '14px 20px',
-              background: 'rgba(255,255,255,0.06)',
-              color: '#fff', border: '1.5px solid rgba(255,255,255,0.15)',
-              borderRadius: 16, fontSize: 15, fontWeight: 600,
+              padding: '15px 20px',
+              background: 'rgba(34,197,94,0.12)',
+              color: '#86efac',
+              border: '1.5px solid rgba(34,197,94,0.4)',
+              borderRadius: 16, fontSize: 15, fontWeight: 700,
               cursor: isWorking ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               transition: 'all 0.2s',
@@ -514,11 +521,11 @@ export default function SelfOrderingMenu() {
             {placing ? (
               <><span className="so-spinner" /> Placing Order…</>
             ) : (
-              <><Banknote size={18} style={{ color: '#22c55e' }} /> Pay with Cash at Table</>
+              <><Banknote size={18} style={{ color: '#4ade80' }} /> Pay with Cash at Table</>
             )}
           </button>
 
-          {error && <div className="so-error-box so-animate-in" style={{ marginTop: 12 }}>{error}</div>}
+          {error && <div className="so-error-box so-animate-in" style={{ marginTop: 14, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>{error}</div>}
         </div>
       </div>
     );
