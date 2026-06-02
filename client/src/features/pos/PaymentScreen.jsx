@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, Banknote, CreditCard, QrCode, CheckCircle2, Printer, Download, Coffee } from 'lucide-react';
+import { loadRazorpayScript } from '../../lib/razorpay';
+import { ArrowLeft, Banknote, CreditCard, QrCode, CheckCircle2, Printer, Coffee, Smartphone } from 'lucide-react';
 
 export default function PaymentScreen() {
   const { orderId } = useParams();
@@ -17,8 +18,20 @@ export default function PaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [paymentInfo, setPaymentInfo] = useState(null);
 
-  const iconMap = { cash: Banknote, digital: CreditCard, upi_qr: QrCode };
-  const colorMap = { cash: 'var(--color-success)', digital: 'var(--color-info)', upi_qr: 'hsl(270, 60%, 55%)' };
+  // Razorpay SVG icon (inline)
+  const RazorpayIcon = () => (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+      <path d="M12.003 0L6.67 15.47h3.9L8.19 24l9.14-13.06h-4.13L17.336 0z"/>
+    </svg>
+  );
+
+  const iconMap = { cash: Banknote, digital: CreditCard, upi_qr: QrCode, razorpay: RazorpayIcon };
+  const colorMap = {
+    cash: 'var(--color-success)',
+    digital: 'var(--color-info)',
+    upi_qr: 'hsl(270, 60%, 55%)',
+    razorpay: '#072654',
+  };
 
   useEffect(() => { fetchData(); }, [orderId]);
 
@@ -53,29 +66,20 @@ export default function PaymentScreen() {
   const subtotal = order ? Number(order.subtotal) : 0;
   const taxAmount = order ? Number(order.tax_amount) : 0;
 
+  // ── Standard payment (Cash / Digital / UPI) ─────────────────────
   async function handlePay() {
     if (!selectedMethod) return;
+    const method = paymentMethods.find(m => m.id === selectedMethod);
+
+    // Branch to Razorpay modal for razorpay type
+    if (method?.type === 'razorpay') {
+      await handleRazorpayPay();
+      return;
+    }
+
     setPaying(true);
-
     try {
-      // 1. Insert payment record
-      await supabase.from('payments').insert({
-        order_id: orderId,
-        payment_method_id: selectedMethod,
-        amount: total,
-        status: 'completed',
-      });
-
-      // 2. Update order status to completed + paid
-      await supabase.from('orders').update({
-        status: 'completed',
-        payment_status: 'paid',
-      }).eq('id', orderId);
-
-      // NOTE: Table stays 'occupied' — staff must manually clear it
-      // using the "Clear Table" button on the success screen.
-
-      const method = paymentMethods.find(m => m.id === selectedMethod);
+      await recordPaymentInDB(selectedMethod, total, null);
       setPaymentInfo({
         method: method?.name || 'Unknown',
         type: method?.type || 'cash',
@@ -83,7 +87,6 @@ export default function PaymentScreen() {
         cashTendered: method?.type === 'cash' ? Number(cashTendered) : null,
         change: method?.type === 'cash' ? Math.max(0, Number(cashTendered) - total) : null,
       });
-
       setPaying(false);
       setPaid(true);
     } catch (err) {
@@ -91,6 +94,86 @@ export default function PaymentScreen() {
       setPaying(false);
       alert('Payment failed: ' + err.message);
     }
+  }
+
+  // ── Shared DB write used by both flows ───────────────────────────
+  async function recordPaymentInDB(methodId, amount, transactionRef) {
+    await supabase.from('payments').insert({
+      order_id: orderId,
+      payment_method_id: methodId,
+      amount: amount,
+      status: 'completed',
+      transaction_ref: transactionRef,
+    });
+    await supabase.from('orders').update({
+      status: 'completed',
+      payment_status: 'paid',
+    }).eq('id', orderId);
+  }
+
+  // ── Razorpay checkout modal flow ─────────────────────────────────
+  async function handleRazorpayPay() {
+    setPaying(true);
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      setPaying(false);
+      alert('Failed to load Razorpay. Check your internet connection.');
+      return;
+    }
+
+    const key = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!key || key === 'rzp_test_YOUR_KEY_HERE') {
+      setPaying(false);
+      alert('Razorpay Key ID is not configured.\nSet VITE_RAZORPAY_KEY_ID in your .env and Vercel environment variables.');
+      return;
+    }
+
+    const method = paymentMethods.find(m => m.id === selectedMethod);
+
+    const options = {
+      key,
+      amount: Math.round(total * 100), // paise
+      currency: 'INR',
+      name: 'Odoo POS Cafe',
+      description: `Table ${order?.tables?.table_number || ''} — Order #${String(order?.order_number || '').padStart(4, '0')}`,
+      image: '/favicon.svg',
+      // No order_id — valid for test/demo mode
+      handler: async function (response) {
+        try {
+          await recordPaymentInDB(selectedMethod, total, response.razorpay_payment_id);
+          setPaymentInfo({
+            method: 'Razorpay',
+            type: 'razorpay',
+            timestamp: new Date().toISOString(),
+            razorpayId: response.razorpay_payment_id,
+            cashTendered: null,
+            change: null,
+          });
+          setPaying(false);
+          setPaid(true);
+        } catch (err) {
+          console.error('Post-Razorpay DB error:', err);
+          setPaying(false);
+          alert('Payment captured but DB update failed: ' + err.message);
+        }
+      },
+      prefill: { name: '', email: '', contact: '' },
+      notes: {
+        table: order?.tables?.table_number || '',
+        order_id: orderId,
+      },
+      theme: { color: '#c97d2e' },
+      modal: {
+        ondismiss: () => setPaying(false),
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', (response) => {
+      setPaying(false);
+      alert('Payment failed: ' + response.error.description);
+    });
+    rzp.open();
   }
 
   async function clearTable() {
@@ -354,12 +437,33 @@ export default function PaymentScreen() {
           </div>
         )}
 
+        {/* Test mode hint for Razorpay */}
+        {paymentMethods.find(m => m.id === selectedMethod)?.type === 'razorpay' && (
+          <div style={{
+            marginTop: 'var(--space-4)',
+            padding: 'var(--space-3)',
+            background: 'rgba(7,38,84,0.3)',
+            border: '1px solid rgba(7,38,84,0.6)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: 'var(--text-xs)',
+          }}>
+            <p style={{ color: '#72a0e5', fontWeight: 600, marginBottom: 4 }}>🧪 Razorpay Test Mode</p>
+            <p style={{ color: 'var(--neutral-400)' }}>Test Card: <span style={{ fontFamily: 'monospace', color: 'var(--neutral-200)' }}>4111 1111 1111 1111</span></p>
+            <p style={{ color: 'var(--neutral-400)' }}>Expiry: any future date &nbsp;|&nbsp; CVV: any 3 digits &nbsp;|&nbsp; OTP: <span style={{ fontFamily: 'monospace', color: 'var(--neutral-200)' }}>1234</span></p>
+          </div>
+        )}
+
         <button
           className={`btn btn-accent btn-xl btn-full mt-6 ${paying ? 'btn-loading' : ''}`}
           disabled={!selectedMethod || paying}
           onClick={handlePay}
+          style={paymentMethods.find(m => m.id === selectedMethod)?.type === 'razorpay' ? { background: '#072654' } : {}}
         >
-          {paying ? '' : `Validate Payment — $${total.toFixed(2)}`}
+          {paying ? '' : (
+            paymentMethods.find(m => m.id === selectedMethod)?.type === 'razorpay'
+              ? `Pay ₹${total.toFixed(2)} via Razorpay`
+              : `Validate Payment — ₹${total.toFixed(2)}`
+          )}
         </button>
       </div>
     </div>
