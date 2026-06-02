@@ -10,7 +10,7 @@ export default function ReportsPage() {
   const [stats, setStats] = useState({ totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, uniqueTables: 0 });
   const [salesData, setSalesData] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
-  const [paymentSplit, setPaymentSplit] = useState({ cash: 0, digital: 0, upi: 0 });
+  const [paymentSplit, setPaymentSplit] = useState([]);
   const [rawOrders, setRawOrders] = useState([]);
 
   // Advanced filters
@@ -138,25 +138,46 @@ export default function ReportsPage() {
         .eq('status', 'completed');
 
       if (payments && payments.length > 0) {
-        const split = { cash: 0, digital: 0, upi: 0 };
+        const split = { Cash: 0, Card: 0, UPI: 0, Razorpay: 0 };
         let total = 0;
         payments.forEach(p => {
-          const type = p.payment_methods?.type;
+          const type = (p.payment_methods?.type || '').toLowerCase();
           const amt = Number(p.amount);
           total += amt;
-          if (type === 'cash') split.cash += amt;
-          else if (type === 'digital') split.digital += amt;
-          else if (type === 'upi_qr') split.upi += amt;
+          if (type === 'cash') split.Cash += amt;
+          else if (type === 'digital' || type === 'card') split.Card += amt;
+          else if (type === 'upi_qr' || type === 'upi') split.UPI += amt;
+          else if (type === 'razorpay' || type === 'online') split.Razorpay += amt;
+          else split.Cash += amt; // fallback
         });
         if (total > 0) {
-          setPaymentSplit({
-            cash: Math.round((split.cash / total) * 100),
-            digital: Math.round((split.digital / total) * 100),
-            upi: Math.round((split.upi / total) * 100),
-          });
+          const COLORS = {
+            Cash: '#e07b39',
+            Card: '#f0c040',
+            UPI: '#22c55e',
+            Razorpay: '#528FF0',
+          };
+          const segments = Object.entries(split)
+            .filter(([, amt]) => amt > 0)
+            .map(([label, amt]) => ({
+              label,
+              pct: Math.round((amt / total) * 100),
+              color: COLORS[label],
+            }));
+          // Normalize so percentages sum to 100
+          const sumPct = segments.reduce((s, seg) => s + seg.pct, 0);
+          if (segments.length > 0 && sumPct !== 100) {
+            segments[0].pct += 100 - sumPct;
+          }
+          setPaymentSplit(segments);
         }
       } else {
-        setPaymentSplit({ cash: 50, digital: 30, upi: 20 });
+        setPaymentSplit([
+          { label: 'Cash', pct: 40, color: '#e07b39' },
+          { label: 'Card', pct: 25, color: '#f0c040' },
+          { label: 'UPI', pct: 20, color: '#22c55e' },
+          { label: 'Razorpay', pct: 15, color: '#528FF0' },
+        ]);
       }
     } catch (err) {
       console.error('Report fetch error:', err);
@@ -405,24 +426,69 @@ export default function ReportsPage() {
 
         <div className="card chart-card">
           <h3 className="chart-title">Payment Split</h3>
-          <div className="chart-placeholder">
-            <div className="donut-chart">
-              <svg viewBox="0 0 120 120" className="donut-svg">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-primary-200)" strokeWidth="20" className="donut-segment"
-                  strokeDasharray={`${(paymentSplit.cash / 100) * 314} ${314 - (paymentSplit.cash / 100) * 314}`} />
-                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-accent)" strokeWidth="20" className="donut-segment"
-                  strokeDasharray={`${(paymentSplit.digital / 100) * 314} ${314 - (paymentSplit.digital / 100) * 314}`}
-                  strokeDashoffset={`${-((paymentSplit.cash / 100) * 314)}`} />
-                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-success)" strokeWidth="20" className="donut-segment"
-                  strokeDasharray={`${(paymentSplit.upi / 100) * 314} ${314 - (paymentSplit.upi / 100) * 314}`}
-                  strokeDashoffset={`${-(((paymentSplit.cash + paymentSplit.digital) / 100) * 314)}`} />
-              </svg>
-              <div className="donut-legend">
-                <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-primary-200)' }} />Cash ({paymentSplit.cash}%)</div>
-                <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-accent)' }} />Digital ({paymentSplit.digital}%)</div>
-                <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-success)' }} />UPI ({paymentSplit.upi}%)</div>
+          <div className="chart-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {paymentSplit.length > 0 ? (() => {
+              const CIRC = 2 * Math.PI * 50;
+              let accumulated = 0;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
+                  {/* SVG Donut */}
+                  <div style={{ position: 'relative', width: 160, height: 160, flexShrink: 0 }}>
+                    <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      {/* Background track */}
+                      <circle cx="60" cy="60" r="50" fill="none"
+                        stroke="var(--border-default)" strokeWidth="20" />
+                      {paymentSplit.map((seg, i) => {
+                        const dash = (seg.pct / 100) * CIRC;
+                        const offset = -(accumulated / 100) * CIRC;
+                        accumulated += seg.pct;
+                        return (
+                          <circle key={seg.label}
+                            cx="60" cy="60" r="50"
+                            fill="none"
+                            stroke={seg.color}
+                            strokeWidth="20"
+                            strokeLinecap="butt"
+                            strokeDasharray={`${dash} ${CIRC}`}
+                            strokeDashoffset={offset}
+                            transform="rotate(-90 60 60)"
+                            style={{ transition: 'stroke-dasharray 0.6s ease' }}
+                          />
+                        );
+                      })}
+                      {/* Centre hole fill */}
+                      <circle cx="60" cy="60" r="39" fill="var(--surface-card)" />
+                    </svg>
+                    {/* Centre label */}
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      <span style={{ fontSize: 10, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Payments</span>
+                      <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{paymentSplit.length}</span>
+                    </div>
+                  </div>
+                  {/* Legend */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', paddingLeft: 4 }}>
+                    {paymentSplit.map(seg => (
+                      <div key={seg.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 12, height: 12, borderRadius: 3, background: seg.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{seg.label}</span>
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{seg.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })() : (
+              <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-tertiary)' }}>
+                <p style={{ fontSize: 14 }}>No payment data</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
