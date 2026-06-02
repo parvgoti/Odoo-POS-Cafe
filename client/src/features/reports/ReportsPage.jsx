@@ -85,13 +85,22 @@ export default function ReportsPage() {
           uniqueTables: uniqueTableSet.size,
         });
 
-        // Daily sales
+        // Daily sales — sort orders by date first for chronological chart
         const dailySales = {};
-        orders.forEach(o => {
-          const day = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-          dailySales[day] = (dailySales[day] || 0) + Number(o.total);
+        const sortedOrders = [...orders].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        sortedOrders.forEach(o => {
+          const isoDay = new Date(o.created_at).toISOString().slice(0, 10); // "2025-04-25"
+          dailySales[isoDay] = (dailySales[isoDay] || 0) + Number(o.total);
         });
-        setSalesData(Object.entries(dailySales).map(([date, amount]) => ({ date, amount })).slice(-7));
+        // Convert ISO keys to display labels, keep last 10 days
+        const salesArr = Object.entries(dailySales)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(-10)
+          .map(([isoDay, amount]) => ({
+            date: new Date(isoDay).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+            amount,
+          }));
+        setSalesData(salesArr);
       } else {
         setStats({ totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, uniqueTables: 0 });
         setSalesData([]);
@@ -350,15 +359,41 @@ export default function ReportsPage() {
           <h3 className="chart-title">Sales Over Time</h3>
           <div className="chart-placeholder">
             {loading ? (
-              <div className="skeleton" style={{ width: '100%', height: 180, borderRadius: 8 }} />
+              <div className="skeleton" style={{ width: '100%', height: 200, borderRadius: 8 }} />
             ) : salesData.length > 0 ? (
-              <div className="bar-chart">
-                {salesData.map((day, i) => (
-                  <div key={day.date} className="bar-group">
-                    <div className="bar" style={{ height: `${(day.amount / maxSales) * 100}%`, animationDelay: `${i * 0.1}s` }} />
-                    <span className="bar-label">{day.date}</span>
-                  </div>
-                ))}
+              <div className="bar-chart" style={{ alignItems: 'flex-end', height: 220, gap: 8, padding: '0 8px' }}>
+                {salesData.map((day, i) => {
+                  const pct = Math.max((day.amount / maxSales) * 100, 4);
+                  return (
+                    <div key={day.date} className="bar-group" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                      {/* Amount label above bar */}
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: 'var(--color-primary)',
+                        marginBottom: 3, whiteSpace: 'nowrap',
+                        opacity: pct > 8 ? 1 : 0,
+                      }}>
+                        ₹{day.amount >= 1000 ? `${(day.amount/1000).toFixed(1)}k` : Math.round(day.amount)}
+                      </span>
+                      <div
+                        className="bar"
+                        title={`${day.date}: ₹${day.amount.toFixed(2)}`}
+                        style={{
+                          height: `${pct}%`,
+                          width: '100%',
+                          maxWidth: 48,
+                          borderRadius: '6px 6px 0 0',
+                          animationDelay: `${i * 0.07}s`,
+                          background: `linear-gradient(180deg, var(--color-primary-light), var(--color-primary))`,
+                          transition: 'opacity 0.2s',
+                          cursor: 'default',
+                        }}
+                      />
+                      <span className="bar-label" style={{ fontSize: 10, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', textAlign: 'center' }}>
+                        {day.date}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-tertiary)' }}>

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { loadRazorpayScript } from '../../lib/razorpay';
 import {
   Coffee, Plus, Minus, Trash2, ArrowLeft, ChevronRight,
-  Banknote, Printer,
+  Printer,
   RotateCcw, Home, PartyPopper, Sparkles
 } from 'lucide-react';
 import './self-ordering.css';
@@ -169,22 +169,7 @@ export default function SelfOrderingMenu() {
     setStep(STEP.RECEIPT);
   }
 
-  /* ── Cash: place order immediately ── */
-  async function handleCashOrder() {
-    if (cart.length === 0 || placing) return;
-    setError(''); setPlacing(true);
-    try {
-      const cashMethod = paymentMethods.find(p => p.type === 'cash');
-      await placeOrderCore(null, 'Cash', cashMethod?.id);
-    } catch (e) {
-      console.error(e);
-      setError(e.message || 'Failed to place order. Please try again.');
-    } finally {
-      setPlacing(false);
-    }
-  }
 
-  /* ── Razorpay: open modal then place order on success ── */
   async function handleRazorpayOrder() {
     if (cart.length === 0 || razorpayPaying) return;
     setError('');
@@ -494,36 +479,6 @@ export default function SelfOrderingMenu() {
               <span style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.85)' }}>1234</span>
             </p>
           </div>
-
-          {/* OR divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.15)' }} />
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 600, letterSpacing: 2 }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.15)' }} />
-          </div>
-
-          {/* ── Cash Button (Secondary) ── */}
-          <button
-            onClick={handleCashOrder}
-            disabled={isWorking}
-            style={{
-              width: '100%',
-              padding: '15px 20px',
-              background: 'rgba(34,197,94,0.12)',
-              color: '#86efac',
-              border: '1.5px solid rgba(34,197,94,0.4)',
-              borderRadius: 16, fontSize: 15, fontWeight: 700,
-              cursor: isWorking ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              transition: 'all 0.2s',
-            }}
-          >
-            {placing ? (
-              <><span className="so-spinner" /> Placing Order…</>
-            ) : (
-              <><Banknote size={18} style={{ color: '#4ade80' }} /> Pay with Cash at Table</>
-            )}
-          </button>
 
           {error && <div className="so-error-box so-animate-in" style={{ marginTop: 14, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>{error}</div>}
         </div>
