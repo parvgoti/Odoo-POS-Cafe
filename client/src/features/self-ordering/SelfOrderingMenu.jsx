@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { loadRazorpayScript } from '../../lib/razorpay';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Coffee, Plus, Minus, Trash2, ArrowLeft, ChevronRight,
-  Banknote, CreditCard, QrCode as QrCodeIcon, Printer,
+  Banknote, Printer,
   RotateCcw, Home, PartyPopper, CheckCircle2, Sparkles
 } from 'lucide-react';
 import './self-ordering.css';
@@ -39,8 +40,8 @@ export default function SelfOrderingMenu() {
   const [selectedTable, setSelectedTable] = useState(searchParams.get('table') || '');
   const [activeCategory,setActiveCategory]= useState('All');
   const [cart,          setCart]          = useState([]);
-  const [selectedPmId,  setSelectedPmId]  = useState(null);
   const [placing,       setPlacing]       = useState(false);
+  const [razorpayPaying,setRazorpayPaying]= useState(false);
   const [orderToken,    setOrderToken]    = useState(null);
   const [orderSummary,  setOrderSummary]  = useState(null);
   const [error,         setError]         = useState('');
@@ -133,41 +134,55 @@ export default function SelfOrderingMenu() {
     setCart(prev => prev.map(x => x.id === id ? { ...x, qty: Math.max(0, x.qty + delta) } : x).filter(x => x.qty > 0));
   }
 
-  /* ── Place order ── */
-  async function placeOrder() {
-    if (!selectedPmId || cart.length === 0 || placing) return;
+  /* ── Core order creation (shared by both payment paths) ── */
+  async function placeOrderCore(transactionRef, methodName, methodId) {
+    const { data: tbl } = await supabase.from('tables').select('id')
+      .or(`table_number.eq.${selectedTable},table_number.eq."${selectedTable}"`).maybeSingle();
+    const { data: last } = await supabase.from('orders').select('order_number')
+      .order('order_number', { ascending: false }).limit(1).maybeSingle();
+    const nextNum = (last?.order_number || 0) + 1;
+
+    const { data: order, error: oErr } = await supabase.from('orders').insert({
+      table_id: tbl?.id || null,
+      order_number: nextNum, status: 'confirmed',
+      subtotal: +subtotal.toFixed(2), tax_amount: +tax.toFixed(2),
+      total: +total.toFixed(2), discount_amount: 0,
+      payment_status: transactionRef ? 'paid' : 'unpaid',
+      is_self_order: true,
+    }).select().single();
+    if (oErr) throw oErr;
+
+    await supabase.from('order_items').insert(
+      cart.map(i => ({ order_id: order.id, product_id: i.id, quantity: i.qty, unit_price: i.price }))
+    );
+    if (tbl?.id) await supabase.from('tables').update({ status: 'occupied' }).eq('id', tbl.id);
+    try { await supabase.from('kitchen_tickets').insert({ order_id: order.id, table_number: String(selectedTable || 'Self-Order'), status: 'to_cook' }); } catch (_) {}
+
+    if (methodId && transactionRef !== undefined) {
+      try {
+        await supabase.from('payments').insert({
+          order_id: order.id,
+          payment_method_id: methodId,
+          amount: +total.toFixed(2),
+          status: 'completed',
+          transaction_ref: transactionRef,
+        });
+      } catch (_) {}
+    }
+
+    setOrderSummary({ items: [...cart], subtotal, tax, total, table: selectedTable, method: methodName, orderNum: nextNum });
+    setOrderToken(nextNum);
+    setCart([]);
+    setStep(STEP.RECEIPT);
+  }
+
+  /* ── Cash: place order immediately ── */
+  async function handleCashOrder() {
+    if (cart.length === 0 || placing) return;
     setError(''); setPlacing(true);
     try {
-      const { data: tbl } = await supabase.from('tables').select('id')
-        .or(`table_number.eq.${selectedTable},table_number.eq."${selectedTable}"`).maybeSingle();
-      const { data: last } = await supabase.from('orders').select('order_number')
-        .order('order_number', { ascending: false }).limit(1).maybeSingle();
-      const nextNum = (last?.order_number || 0) + 1;
-
-      const { data: order, error: oErr } = await supabase.from('orders').insert({
-        table_id: tbl?.id || null,
-        order_number: nextNum, status: 'confirmed',
-        subtotal: +subtotal.toFixed(2), tax_amount: +tax.toFixed(2),
-        total: +total.toFixed(2), discount_amount: 0,
-        payment_status: 'unpaid', is_self_order: true,
-      }).select().single();
-      if (oErr) throw oErr;
-
-      await supabase.from('order_items').insert(
-        cart.map(i => ({ order_id: order.id, product_id: i.id, quantity: i.qty, unit_price: i.price }))
-      );
-      if (tbl?.id) await supabase.from('tables').update({ status: 'occupied' }).eq('id', tbl.id);
-
-      try { await supabase.from('kitchen_tickets').insert({ order_id: order.id, table_number: String(selectedTable || 'Self-Order'), status: 'to_cook' }); } catch (_) {}
-      const pm = paymentMethods.find(p => p.id === selectedPmId);
-      if (pm && !pm.id.startsWith('pm-')) {
-        try { await supabase.from('payments').insert({ order_id: order.id, payment_method_id: pm.id, amount: +total.toFixed(2), status: 'completed' }); } catch (_) {}
-      }
-
-      setOrderSummary({ items: [...cart], subtotal, tax, total, table: selectedTable, method: pm?.name || selectedPmId, orderNum: nextNum });
-      setOrderToken(nextNum);
-      setCart([]); setSelectedPmId(null);
-      setStep(STEP.RECEIPT);
+      const cashMethod = paymentMethods.find(p => p.type === 'cash');
+      await placeOrderCore(null, 'Cash', cashMethod?.id);
     } catch (e) {
       console.error(e);
       setError(e.message || 'Failed to place order. Please try again.');
@@ -176,11 +191,63 @@ export default function SelfOrderingMenu() {
     }
   }
 
+  /* ── Razorpay: open modal then place order on success ── */
+  async function handleRazorpayOrder() {
+    if (cart.length === 0 || razorpayPaying) return;
+    setError('');
+    setRazorpayPaying(true);
+
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      setRazorpayPaying(false);
+      setError('Failed to load Razorpay. Check your internet connection.');
+      return;
+    }
+
+    const key = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!key || key === 'rzp_test_YOUR_KEY_HERE') {
+      setRazorpayPaying(false);
+      setError('Razorpay Key ID not configured.');
+      return;
+    }
+
+    const razorpayMethod = paymentMethods.find(p => p.type === 'razorpay');
+
+    const options = {
+      key,
+      amount: Math.round(total * 100),
+      currency: 'INR',
+      name: 'Odoo POS Cafe',
+      description: `Table ${selectedTable} — Self Order`,
+      image: '/favicon.svg',
+      handler: async function (response) {
+        try {
+          await placeOrderCore(response.razorpay_payment_id, 'Razorpay', razorpayMethod?.id);
+          setRazorpayPaying(false);
+        } catch (e) {
+          console.error(e);
+          setRazorpayPaying(false);
+          setError('Payment done but order failed: ' + e.message);
+        }
+      },
+      prefill: { name: '', email: '', contact: '' },
+      notes: { table: String(selectedTable) },
+      theme: { color: '#c97d2e' },
+      modal: { ondismiss: () => setRazorpayPaying(false) },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', (res) => {
+      setRazorpayPaying(false);
+      setError('Payment failed: ' + res.error.description);
+    });
+    rzp.open();
+  }
+
   function resetAll() {
     setStep(STEP.TABLE);
-    setSelectedTable(''); setCart([]); setSelectedPmId(null);
+    setSelectedTable(''); setCart([]); setRazorpayPaying(false);
     setOrderToken(null); setOrderSummary(null); setActiveCategory('All'); setError('');
-    // loadTables() auto-triggered by useEffect on step change
   }
 
   /* ══════════════════════════════════════════════
@@ -365,10 +432,7 @@ export default function SelfOrderingMenu() {
      STEP 4 — Payment
   ══════════════════════════════════════════════ */
   if (step === STEP.PAYMENT) {
-    const selectedPm  = paymentMethods.find(p => p.id === selectedPmId);
-    const selectedType = selectedPm?.type || '';
-    const upiString   = `upi://pay?pa=${upiId}&pn=OdooPOSCafe&am=${total.toFixed(2)}&cu=INR`;
-
+    const isWorking = razorpayPaying || placing;
     return (
       <div className="so-inner-screen so-animate-slide-up">
         <div className="so-inner-header">
@@ -378,62 +442,90 @@ export default function SelfOrderingMenu() {
         </div>
 
         <div className="so-inner-body--scroll">
+          {/* Amount card */}
           <div className="so-amount-card so-glass-shine">
             <div className="so-amount-label">AMOUNT TO PAY</div>
             <div className="so-amount-value">{inr(total)}</div>
             <div className="so-amount-meta">Table {selectedTable} · {cartCount} item{cartCount !== 1 ? 's' : ''}</div>
           </div>
 
-          <div className="so-pm-section-title">Choose Payment Method</div>
+          {/* ── Razorpay Button (Primary) ── */}
+          <button
+            onClick={handleRazorpayOrder}
+            disabled={isWorking}
+            style={{
+              width: '100%', marginTop: 20,
+              padding: '16px 20px',
+              background: razorpayPaying
+                ? 'rgba(7,38,84,0.5)'
+                : 'linear-gradient(135deg, #072654 0%, #1a4a9e 100%)',
+              color: '#fff', border: 'none', borderRadius: 16,
+              fontSize: 16, fontWeight: 700, cursor: isWorking ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              transition: 'all 0.2s',
+            }}
+          >
+            {razorpayPaying ? (
+              <><span className="so-spinner" /> Opening Razorpay…</>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <path d="M12.003 0L6.67 15.47h3.9L8.19 24l9.14-13.06h-4.13L17.336 0z"/>
+                </svg>
+                Pay {inr(total)} via Razorpay
+              </>
+            )}
+          </button>
 
-          <div className="so-pm-list stagger-in">
-            {paymentMethods.map((pm, idx) => {
-              const type = pm.type || (pm.name?.toLowerCase().includes('upi') ? 'upi' : pm.name?.toLowerCase().includes('cash') ? 'cash' : 'digital');
-              const Icon = PM_ICONS[type] || CreditCard;
-              const color = PM_COLORS[type] || '#6b7280';
-              const sel  = selectedPmId === pm.id;
-              const desc = type === 'cash' ? 'Pay with cash at your table' : type === 'upi' ? `Scan QR · UPI ID: ${upiId}` : 'Card, bank transfer or wallet';
-              return (
-                <button key={pm.id} type="button"
-                  className={`so-pm-btn ${sel ? 'so-pm-btn--active' : ''}`}
-                  onClick={() => { setSelectedPmId(pm.id); setError(''); }}
-                  style={sel ? { '--pm-color': color } : {}}
-                >
-                  <span className="so-pm-icon-wrap" style={{ background: color + '20', color }}>
-                    <Icon size={22} />
-                  </span>
-                  <span className="so-pm-text">
-                    <span className="so-pm-name">{pm.name}</span>
-                    <span className="so-pm-desc">{desc}</span>
-                  </span>
-                  {sel && <span className="so-pm-check so-check-pop" style={{ background: color }}><CheckCircle2 size={18} /></span>}
-                </button>
-              );
-            })}
+          {/* Test mode hint */}
+          <div style={{
+            margin: '12px 0 8px',
+            padding: '10px 14px',
+            background: 'rgba(7,38,84,0.2)',
+            border: '1px solid rgba(114,160,229,0.25)',
+            borderRadius: 12,
+            fontSize: 12,
+          }}>
+            <p style={{ color: '#72a0e5', fontWeight: 600, marginBottom: 4 }}>🧪 Test Mode</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>
+              UPI: <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>success@razorpay</span>
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.6)' }}>
+              Card: <span style={{ fontFamily: 'monospace', color: '#90cdf4' }}>5267 3181 8797 5449</span>
+              &nbsp;·&nbsp; CVV: 123 &nbsp;·&nbsp; OTP: 1234
+            </p>
           </div>
 
-          {selectedType === 'upi' && (
-            <div className="so-upi-box so-animate-in">
-              <div className="so-upi-qr">
-                <QRCodeSVG value={upiString} size={160} includeMargin fgColor="#1a1209" />
-              </div>
-              <p className="so-upi-note">Scan with Google Pay, PhonePe, Paytm or any UPI app</p>
-              <p className="so-upi-id-line">UPI ID: <b>{upiId}</b> · Amount: <b>{inr(total)}</b></p>
-            </div>
-          )}
+          {/* OR divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+          </div>
 
-          {error && <div className="so-error-box so-animate-in">{error}</div>}
-        </div>
-
-        <div className="so-inner-footer">
-          <button type="button"
-            className={`so-cta-btn so-cta-btn--full ${!selectedPmId ? 'so-cta-btn--dim' : ''}`}
-            disabled={!selectedPmId || placing}
-            onClick={placeOrder}
+          {/* ── Cash Button (Secondary) ── */}
+          <button
+            onClick={handleCashOrder}
+            disabled={isWorking}
+            style={{
+              width: '100%',
+              padding: '14px 20px',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#fff', border: '1.5px solid rgba(255,255,255,0.15)',
+              borderRadius: 16, fontSize: 15, fontWeight: 600,
+              cursor: isWorking ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              transition: 'all 0.2s',
+            }}
           >
-            {placing ? <><span className="so-spinner" /> Placing Order…</> :
-             selectedPmId ? `Confirm & Place Order — ${inr(total)}` : 'Select a Payment Method ↑'}
+            {placing ? (
+              <><span className="so-spinner" /> Placing Order…</>
+            ) : (
+              <><Banknote size={18} style={{ color: '#22c55e' }} /> Pay with Cash at Table</>
+            )}
           </button>
+
+          {error && <div className="so-error-box so-animate-in" style={{ marginTop: 12 }}>{error}</div>}
         </div>
       </div>
     );
