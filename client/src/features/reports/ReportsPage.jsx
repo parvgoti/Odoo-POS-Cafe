@@ -424,21 +424,23 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="card chart-card">
+        <div className="card chart-card" style={{ minHeight: 'auto' }}>
           <h3 className="chart-title">Payment Split</h3>
-          <div className="chart-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* height:auto overrides the CSS fixed 220px on chart-placeholder */}
+          <div className="chart-placeholder" style={{ height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0 16px' }}>
             {paymentSplit.length > 0 ? (() => {
               const CIRC = 2 * Math.PI * 50;
               let accumulated = 0;
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
-                  {/* SVG Donut */}
-                  <div style={{ position: 'relative', width: 160, height: 160, flexShrink: 0 }}>
-                    <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                /* Side-by-side: donut LEFT, legend RIGHT — fits in 220px */
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: '100%' }}>
+                  {/* SVG Donut — smaller so fits without overflow */}
+                  <div style={{ position: 'relative', width: 130, height: 130, flexShrink: 0 }}>
+                    <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
                       {/* Background track */}
                       <circle cx="60" cy="60" r="50" fill="none"
                         stroke="var(--border-default)" strokeWidth="20" />
-                      {paymentSplit.map((seg, i) => {
+                      {paymentSplit.map((seg) => {
                         const dash = (seg.pct / 100) * CIRC;
                         const offset = -(accumulated / 100) * CIRC;
                         accumulated += seg.pct;
@@ -456,7 +458,7 @@ export default function ReportsPage() {
                           />
                         );
                       })}
-                      {/* Centre hole fill */}
+                      {/* Centre white hole */}
                       <circle cx="60" cy="60" r="39" fill="var(--surface-card)" />
                     </svg>
                     {/* Centre label */}
@@ -466,19 +468,24 @@ export default function ReportsPage() {
                       alignItems: 'center', justifyContent: 'center',
                       pointerEvents: 'none',
                     }}>
-                      <span style={{ fontSize: 10, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Payments</span>
-                      <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{paymentSplit.length}</span>
+                      <span style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Split</span>
+                      <span style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'monospace', lineHeight: 1.2 }}>{paymentSplit.length}</span>
                     </div>
                   </div>
-                  {/* Legend */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', paddingLeft: 4 }}>
+
+                  {/* Legend — RIGHT side */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {paymentSplit.map(seg => (
-                      <div key={seg.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div key={seg.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 12, height: 12, borderRadius: 3, background: seg.color, flexShrink: 0 }} />
+                          <span style={{
+                            width: 10, height: 10, borderRadius: 3,
+                            background: seg.color, flexShrink: 0,
+                            boxShadow: `0 0 6px ${seg.color}66`,
+                          }} />
                           <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{seg.label}</span>
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{seg.pct}%</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{seg.pct}%</span>
                       </div>
                     ))}
                   </div>
